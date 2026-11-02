@@ -1,8 +1,8 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { api } from '../api.js';
 import RateChart from '../components/RateChart.vue';
-import { bits, bytes, date, duration, EVENT_LABELS, MEDIA, rate, STATE } from '../format.js';
+import { ago, bits, bytes, date, duration, EVENT_LABELS, MEDIA, rate, STATE } from '../format.js';
 import { live } from '../live.js';
 
 const RANGES = [
@@ -60,7 +60,14 @@ async function loadHistory() {
   history.value = r.series['wan.down'].map(([t, avg]) => [t, avg, up.get(t) ?? null]);
 }
 
-onMounted(() => { load(); loadTraffic(); });
+// Connexions au serveur VPN de la box (null : illisible, droit « Modification des réglages » manquant)
+const vpn = ref(null);
+async function loadVpn() {
+  vpn.value = await api('/vpn/connections').catch(() => null);
+}
+let vpnTimer;
+onMounted(() => { load(); loadTraffic(); loadVpn(); vpnTimer = setInterval(loadVpn, 30000); });
+onUnmounted(() => clearInterval(vpnTimer));
 watch(() => live.traffic, (t) => { if (t) trafficData.value = { ...t, sort: trafficSort.value }; });
 watch(range, loadHistory);
 watch(() => live.lastEvent, load);
@@ -129,6 +136,25 @@ watch(() => live.devicesVersion, load);
       </div>
       <RateChart :points="points" :range="rangeSeconds" />
       <p class="muted small">{{ range === 'live' ? 'Mesures en direct depuis l\'ouverture de la page' : 'Moyennes enregistrées par le serveur' }}</p>
+    </article>
+
+    <article v-if="vpn" class="card">
+      <div class="row between">
+        <h2>Connexions VPN ({{ vpn.length }})</h2>
+        <RouterLink to="/reseau/vpn">Serveur VPN</RouterLink>
+      </div>
+      <table v-if="vpn.length" class="traffic">
+        <thead><tr><th>Utilisateur</th><th>Depuis</th><th>Reçoit</th><th>Envoie</th></tr></thead>
+        <tbody>
+          <tr v-for="c in vpn" :key="c.id">
+            <td>{{ c.user }}<div class="muted small">{{ c.serverLabel }}<template v-if="c.local_ip"> · {{ c.local_ip }}</template></div></td>
+            <td>{{ c.src_ip }}<div class="muted small">{{ c.auth_time ? ago(c.auth_time) : '' }}</div></td>
+            <td class="down">{{ bytes(c.tx_bytes) }}</td>
+            <td class="up">{{ bytes(c.rx_bytes) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <p v-else class="muted">Personne n'est connecté au VPN de la box.</p>
     </article>
 
     <article v-if="trafficData?.items.length" class="card">

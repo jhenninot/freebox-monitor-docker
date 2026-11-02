@@ -43,6 +43,12 @@ export function vpnRouter({ freebox }) {
     });
   });
 
+  // Connexions en cours seulement (page d'accueil)
+  router.get('/vpn/connections', async (_req, res) => {
+    const connections = await freebox.get('vpn/connection/');
+    res.json(list(connections).map((c) => ({ ...c, serverLabel: serverLabel(c.vpn) })));
+  });
+
   router.put('/vpn/servers/:id', async (req, res) => {
     const id = req.params.id;
     const current = await freebox.get(`vpn/${enc(id)}/config/`);

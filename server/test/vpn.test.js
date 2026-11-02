@@ -48,7 +48,9 @@ before(async () => { h = await startHarness(); });
 after(() => h.close());
 
 test('API serveur VPN : réglages, connexions, utilisateurs, fichier', async () => {
-  let r = await h.call('GET', '/api/vpn');
+  let r = await h.call('GET', '/api/vpn/connections');
+  assert.deepEqual(r.body.map((c) => [c.user, c.serverLabel, c.src_ip]), [['julien', 'WireGuard', '80.1.2.3']]);
+  r = await h.call('GET', '/api/vpn');
   assert.deepEqual(r.body.servers.map((s) => [s.label, s.stateLabel]), [['WireGuard', 'Démarré'], ['OpenVPN (routé)', 'Arrêté']]);
   assert.equal(r.body.nextFreeIp, '192.168.27.66');
   assert.deepEqual(r.body.users[0].configServers, [{ id: 'wireguard', label: 'WireGuard' }]);
