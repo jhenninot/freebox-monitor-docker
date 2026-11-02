@@ -183,4 +183,5 @@ export class FreeboxClient {
   get(path) { return this.request('GET', path); }
   put(path, body) { return this.request('PUT', path, body); }
   post(path, body) { return this.request('POST', path, body); }
+  del(path) { return this.request('DELETE', path); }
 }

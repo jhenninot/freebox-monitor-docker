@@ -20,6 +20,8 @@ export class Collector extends EventEmitter {
     this.system = null;
     this.lastError = null;
     this.lastSuccess = null;
+    // IP fixes (baux DHCP statiques), relues à chaque passage pour marquer les appareils concernés
+    this.staticLeases = [];
   }
 
   start() {
@@ -111,6 +113,7 @@ export class Collector extends EventEmitter {
     const hosts = await this.freebox.get('lan/browser/pub/');
     const devices = (Array.isArray(hosts) ? hosts : []).map(toDevice);
     const { cameOnline, wentOffline } = this.store.saveDevices(devices, ts);
+    await this.refreshStaticLeases();
     this.store.addMetrics({ 'devices.online': devices.filter((d) => d.online).length }, ts);
 
     const settings = this.store.getSetting('alerts.settings', DEFAULT_ALERT_SETTINGS);
@@ -131,6 +134,15 @@ export class Collector extends EventEmitter {
     }
     if (cameOnline.length || wentOffline.length || outcome.newDevices.length) {
       this.emit('devices', { cameOnline, wentOffline });
+    }
+  }
+
+  async refreshStaticLeases() {
+    try {
+      const leases = await this.freebox.get('dhcp/static_lease/');
+      this.staticLeases = Array.isArray(leases) ? leases : [];
+    } catch {
+      // Lecture facultative : on garde la liste précédente
     }
   }
 

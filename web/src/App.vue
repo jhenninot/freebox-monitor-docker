@@ -57,6 +57,7 @@ async function logout() {
       <nav v-if="paired">
         <RouterLink to="/">Accueil</RouterLink>
         <RouterLink to="/appareils">Appareils</RouterLink>
+        <RouterLink to="/reseau">Réseau</RouterLink>
         <RouterLink to="/journal">Journal</RouterLink>
       </nav>
       <span class="spacer" />

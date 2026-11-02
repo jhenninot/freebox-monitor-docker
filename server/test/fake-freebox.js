@@ -12,6 +12,12 @@ export function startFakeFreebox(port = 0) {
     system: { firmware_version: '4.9.0', uptime_val: 1000, model_info: { pretty_name: 'Freebox Ultra' }, sensors: [{ id: 'temp_cpu', name: 'CPU', value: 55 }], fans: [{ id: 'fan0', name: 'Ventilateur', value: 1200 }] },
     hosts: [],
     renamed: [],
+    wol: [],
+    dhcpConfig: { enabled: true, gateway: '192.168.1.254', netmask: '255.255.255.0', ip_range_start: '192.168.1.10', ip_range_end: '192.168.1.50', dns: ['192.168.1.254', ''] },
+    staticLeases: [],
+    dynamicLeases: [],
+    wifiConfig: { enabled: true, mac_filter_state: 'disabled' },
+    macFilters: [],
   };
   const ok = (res, result) => res.json({ success: true, result });
   const app = express();
@@ -40,8 +46,47 @@ export function startFakeFreebox(port = 0) {
   api.put('/lan/browser/pub/:id/', (req, res) => {
     state.renamed.push(req.body);
     const host = state.hosts.find((h) => h.id === req.params.id);
-    if (host) host.primary_name = req.body.primary_name;
+    if (host) {
+      const { id, ...changes } = req.body;
+      Object.assign(host, changes);
+    }
     ok(res, host);
+  });
+  api.delete('/lan/browser/pub/:id/', (req, res) => {
+    state.hosts = state.hosts.filter((h) => h.id !== req.params.id);
+    ok(res);
+  });
+  api.post('/lan/wol/pub/', (req, res) => { state.wol.push(req.body); ok(res); });
+
+  api.get('/dhcp/config/', (_req, res) => ok(res, state.dhcpConfig));
+  api.get('/dhcp/static_lease/', (_req, res) => ok(res, state.staticLeases));
+  api.get('/dhcp/dynamic_lease/', (_req, res) => ok(res, state.dynamicLeases));
+  api.post('/dhcp/static_lease/', (req, res) => {
+    const lease = { id: req.body.mac, mac: req.body.mac, ip: req.body.ip, comment: req.body.comment, hostname: '' };
+    state.staticLeases.push(lease);
+    ok(res, lease);
+  });
+  api.put('/dhcp/static_lease/:id', (req, res) => {
+    const lease = state.staticLeases.find((l) => l.id === req.params.id);
+    Object.assign(lease, req.body);
+    ok(res, lease);
+  });
+  api.delete('/dhcp/static_lease/:id', (req, res) => {
+    state.staticLeases = state.staticLeases.filter((l) => l.id !== req.params.id);
+    ok(res);
+  });
+
+  api.get('/wifi/config/', (_req, res) => ok(res, state.wifiConfig));
+  api.put('/wifi/config/', (req, res) => { Object.assign(state.wifiConfig, req.body); ok(res, state.wifiConfig); });
+  api.get('/wifi/mac_filter/', (_req, res) => ok(res, state.macFilters));
+  api.post('/wifi/mac_filter/', (req, res) => {
+    const entry = { id: `${req.body.mac}-${req.body.type}`, ...req.body, hostname: '' };
+    state.macFilters.push(entry);
+    ok(res, entry);
+  });
+  api.delete('/wifi/mac_filter/:id', (req, res) => {
+    state.macFilters = state.macFilters.filter((f) => f.id !== req.params.id);
+    ok(res);
   });
   app.use('/api/v15', api);
 

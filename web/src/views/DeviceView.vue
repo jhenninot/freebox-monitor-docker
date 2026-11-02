@@ -1,25 +1,44 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '../api.js';
 import { ago, date, duration, EVENT_LABELS, HOST_TYPES } from '../format.js';
 import { live } from '../live.js';
 
 const props = defineProps({ deviceKey: { type: String, required: true } });
+const router = useRouter();
 const device = ref(null);
 const days = ref(7);
 const newName = ref('');
 const message = ref('');
 const error = ref('');
+const busy = ref(false);
+const hostType = ref('');
+const domainPrefix = ref('');
+const leaseIp = ref('');
+const leaseComment = ref('');
+const wifi = ref(null);
 
 async function load() {
   try {
-    device.value = await api(`/devices/${encodeURIComponent(props.deviceKey)}?days=${days.value}`);
-    error.value = '';
+    const d = await api(`/devices/${encodeURIComponent(props.deviceKey)}?days=${days.value}`);
+    // Les champs du formulaire ne bougent pas pendant la saisie : seulement au premier chargement ou après un enregistrement
+    if (!device.value || device.value.key !== d.key || !busy.value) {
+      hostType.value = d.hostType;
+      domainPrefix.value = d.box.localDomain ? d.box.domainName.replace(`.${d.box.localDomain}`, '') : '';
+      leaseIp.value = d.lease?.ip ?? d.ipv4 ?? '';
+      leaseComment.value = d.lease?.comment ?? d.name;
+    }
+    device.value = d;
   } catch (e) {
     error.value = e.message;
   }
 }
-onMounted(load);
+async function loadWifi() {
+  if (!device.value?.mac) return;
+  wifi.value = await api(`/devices/${encodeURIComponent(props.deviceKey)}/wifi`).catch(() => null);
+}
+onMounted(async () => { await load(); loadWifi(); });
 watch(days, load);
 watch(() => live.devicesVersion, load);
 
@@ -49,18 +68,76 @@ async function setFlag(field, value) {
   device.value = { ...device.value, ...(await api(`/devices/${encodeURIComponent(props.deviceKey)}`, { method: 'PATCH', body: { [field]: value } })) };
 }
 
-async function rename() {
+const path = (suffix = '') => `/devices/${encodeURIComponent(props.deviceKey)}${suffix}`;
+
+/** Lance une action sur la box, affiche le résultat et recharge la fiche. */
+async function act(fn, done) {
   message.value = '';
   error.value = '';
+  busy.value = true;
   try {
-    await api(`/devices/${encodeURIComponent(props.deviceKey)}/name`, { method: 'PUT', body: { name: newName.value } });
-    message.value = 'Nom changé dans la Freebox';
-    newName.value = '';
+    await fn();
+    message.value = done;
+    busy.value = false;
     await load();
+  } catch (e) {
+    error.value = e.message;
+  } finally {
+    busy.value = false;
+  }
+}
+
+const rename = () => act(async () => {
+  await api(path('/name'), { method: 'PUT', body: { name: newName.value } });
+  newName.value = '';
+}, 'Nom changé dans la Freebox');
+
+const saveType = () => act(() => api(path('/box'), { method: 'PATCH', body: { hostType: hostType.value } }), 'Type enregistré');
+const saveDomain = () => act(() => api(path('/box'), { method: 'PATCH', body: { domainPrefix: domainPrefix.value } }), domainPrefix.value ? 'Nom local enregistré' : 'Nom local supprimé');
+
+const saveLease = () => act(() => (device.value.lease
+  ? api(`/dhcp/leases/${encodeURIComponent(device.value.lease.id)}`, { method: 'PUT', body: { ip: leaseIp.value, comment: leaseComment.value } })
+  : api('/dhcp/leases', { method: 'POST', body: { mac: device.value.mac, ip: leaseIp.value, comment: leaseComment.value } })), 'IP fixe enregistrée');
+
+const removeLease = () => {
+  if (!window.confirm(`Retirer l'IP fixe ${device.value.lease.ip} ?`)) return;
+  act(() => api(`/dhcp/leases/${encodeURIComponent(device.value.lease.id)}`, { method: 'DELETE' }), 'IP fixe retirée');
+};
+
+const wake = () => act(() => api(path('/wol'), { method: 'POST', body: {} }), 'Demande de réveil envoyée');
+
+const WIFI_STATUS = {
+  blocked: 'Bloqué : il ne peut pas se connecter au Wi-Fi',
+  listed_inactive: 'En liste noire, mais le filtrage MAC est désactivé : il peut se connecter',
+  not_blocked: 'Non bloqué',
+  whitelist_mode: 'Le Wi-Fi est en mode liste blanche : gère-le depuis l\'écran Filtrage Wi-Fi',
+};
+
+function setWifiBlocked(blocked) {
+  if (blocked) {
+    let text = `${device.value.name} ne pourra plus se connecter au Wi-Fi de la box (le câble reste possible).`;
+    if (wifi.value?.filterState === 'disabled') {
+      text += '\n\nLe filtrage MAC est désactivé : il sera activé en mode liste noire.';
+      if (wifi.value.otherBlacklisted) text += ` Attention, ${wifi.value.otherBlacklisted} autre(s) appareil(s) déjà en liste noire seront bloqués aussi.`;
+    }
+    if (!window.confirm(text)) return;
+  }
+  act(async () => {
+    wifi.value = await api(path('/wifi'), { method: 'PUT', body: { blocked } });
+  }, blocked ? 'Appareil bloqué en Wi-Fi' : 'Appareil débloqué en Wi-Fi');
+}
+
+async function forget() {
+  if (!window.confirm(`Oublier ${device.value.name} ? La box le retire de sa liste (il reviendra s'il se reconnecte) et son historique de présence est effacé.`)) return;
+  try {
+    await api(path(), { method: 'DELETE' });
+    router.replace('/appareils');
   } catch (e) {
     error.value = e.message;
   }
 }
+
+const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbios: 'NetBIOS', wsd: 'WS-Discovery' };
 </script>
 
 <template>
@@ -82,16 +159,72 @@ async function rename() {
         <label class="check"><input type="checkbox" :checked="device.hidden" @change="setFlag('hidden', $event.target.checked)"> Masquer dans la liste</label>
       </article>
       <article class="card">
-        <h2>Renommer</h2>
+        <h2>Dans la Freebox</h2>
         <form class="row" @submit.prevent="rename">
-          <input v-model="newName" :placeholder="device.name" maxlength="64" required>
-          <button>Enregistrer</button>
+          <input v-model="newName" :placeholder="device.name" maxlength="64" required aria-label="Nouveau nom">
+          <button :disabled="busy">Renommer</button>
         </form>
-        <p class="muted small">Le nom est changé dans la Freebox : il apparaît aussi dans Freebox OS et l'appli Android.</p>
+        <form class="row" @submit.prevent="saveType">
+          <select v-model="hostType" aria-label="Type d'appareil">
+            <option v-for="(label, value) in HOST_TYPES" :key="value" :value="value">{{ label }}</option>
+          </select>
+          <button :disabled="busy || hostType === device.hostType">Changer le type</button>
+        </form>
+        <form v-if="device.box.localDomain" class="row" @submit.prevent="saveDomain">
+          <span class="suffixed">
+            <input v-model="domainPrefix" placeholder="nom-local" aria-label="Nom local">
+            <span class="muted">.{{ device.box.localDomain }}</span>
+          </span>
+          <button :disabled="busy">Nom local</button>
+        </form>
+        <div class="row">
+          <button class="ghost" :disabled="busy || !device.mac" @click="wake">Réveiller (Wake-on-LAN)</button>
+          <button class="danger" :disabled="busy" @click="forget">Oublier</button>
+        </div>
+        <p class="muted small">Ces réglages sont enregistrés dans la box : ils apparaissent aussi dans Freebox OS.</p>
         <p v-if="message" class="ok">{{ message }}</p>
         <p v-if="error" class="error">{{ error }}</p>
       </article>
     </div>
+
+    <div class="grid">
+      <article v-if="device.mac" class="card">
+        <h2>IP fixe</h2>
+        <p v-if="device.lease">📌 Réservée : <strong>{{ device.lease.ip }}</strong></p>
+        <p v-else class="muted">L'adresse de cet appareil est distribuée automatiquement et peut changer.</p>
+        <form class="row" @submit.prevent="saveLease">
+          <input v-model="leaseIp" placeholder="192.168.1.x" required aria-label="Adresse IP" class="ip-input">
+          <input v-model="leaseComment" placeholder="Commentaire" aria-label="Commentaire">
+          <button :disabled="busy">{{ device.lease ? 'Modifier' : 'Fixer l\'IP' }}</button>
+          <button v-if="device.lease" type="button" class="danger" :disabled="busy" @click="removeLease">Retirer</button>
+        </form>
+      </article>
+      <article v-if="device.mac" class="card">
+        <h2>Wi-Fi</h2>
+        <template v-if="wifi">
+          <p>{{ WIFI_STATUS[wifi.status] }}</p>
+          <button v-if="wifi.status === 'blocked' || wifi.status === 'listed_inactive'" :disabled="busy" @click="setWifiBlocked(false)">Débloquer</button>
+          <button v-else-if="wifi.status === 'not_blocked'" class="danger" :disabled="busy" @click="setWifiBlocked(true)">Bloquer en Wi-Fi</button>
+        </template>
+        <p v-else class="muted">Filtrage Wi-Fi illisible (droit « Modification des réglages » nécessaire).</p>
+      </article>
+    </div>
+
+    <article v-if="device.box.otherNames.length || device.box.info.length || device.box.ipv6.length" class="card">
+      <h2>Infos détectées par la box</h2>
+      <dl>
+        <template v-if="device.box.ipv6.length"><dt>IPv6</dt><dd class="wrap">{{ device.box.ipv6.join(', ') }}</dd></template>
+        <template v-for="n in device.box.otherNames" :key="`${n.source}-${n.name}`">
+          <dt>Nom {{ INFO_SOURCES[n.source] ?? n.source }}</dt><dd>{{ n.name }}</dd>
+        </template>
+      </dl>
+      <details v-for="section in device.box.info" :key="section.source">
+        <summary>{{ INFO_SOURCES[section.source] ?? section.source }}</summary>
+        <dl>
+          <template v-for="[k, v] in section.entries" :key="k"><dt>{{ k }}</dt><dd class="wrap">{{ v }}</dd></template>
+        </dl>
+      </details>
+    </article>
 
     <article class="card">
       <div class="row between">

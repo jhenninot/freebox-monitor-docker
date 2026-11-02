@@ -67,14 +67,14 @@ async function toggle(device, field) {
       </select>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
-    <p class="muted small">{{ shown.length }} appareils affichés · ⭐ = surveillé (alerte s'il passe hors ligne)</p>
+    <p class="muted small">{{ shown.length }} appareils affichés · ⭐ = surveillé (alerte s'il passe hors ligne) · 📌 = IP fixe</p>
 
     <ul class="devices">
       <li v-for="d in shown" :key="d.key" :class="{ offline: !d.online }">
         <button class="star" :class="{ on: d.watched }" :title="d.watched ? 'Ne plus surveiller' : 'Surveiller'" @click="toggle(d, 'watched')">★</button>
         <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
           <span class="dot" :class="d.online ? 'ok' : 'off'" />
-          <span class="name">{{ d.name }}</span>
+          <span class="name">{{ d.name }}<span v-if="d.fixedIp" class="pin" title="IP fixe"> 📌</span></span>
           <span class="muted small">{{ HOST_TYPES[d.hostType] ?? d.hostType }}<template v-if="d.vendor"> · {{ d.vendor }}</template></span>
           <span class="ip">{{ d.ipv4 ?? '' }}</span>
           <span class="muted small">{{ d.online ? (d.link === 'wifi' ? `Wi-Fi ${d.wifiBand ?? ''}` : d.link === 'ethernet' ? 'Câble' : 'En ligne') : ago(d.lastSeen) }}</span>

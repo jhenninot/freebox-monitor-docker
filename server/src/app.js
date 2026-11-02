@@ -3,12 +3,25 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { cleanAlertSettings, DEFAULT_ALERT_SETTINGS } from './alerts.js';
+import { normalizeMac } from './freebox/rules.js';
+import { boxRouter } from './routes/box.js';
 import { passwordMatches } from './security.js';
 
 const COOKIE = 'fbm_session';
 const SESSION_DAYS = 30;
 const RANGES = { '1h': 3600, '6h': 6 * 3600, '24h': 86400, '7d': 7 * 86400, '30d': 30 * 86400, '1y': 365 * 86400 };
 const now = () => Math.floor(Date.now() / 1000);
+
+/** Champ « info » de la box ({ upnp: {...}, mdns: {...} }) → sections lisibles, sans valeur vide. */
+function infoSections(info) {
+  if (!info || typeof info !== 'object') return [];
+  return Object.entries(info).map(([source, content]) => ({
+    source,
+    entries: Object.entries(content && typeof content === 'object' ? content : {})
+      .map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v ?? '')])
+      .filter(([, v]) => v.trim()),
+  })).filter((s) => s.entries.length);
+}
 
 function readCookie(req, name) {
   const header = req.headers.cookie || '';
@@ -83,7 +96,8 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   api.use((req, res, next) => {
     if (!sessionOf(req)) return res.status(401).json({ error: 'Connexion requise' });
     // Protection CSRF : les requêtes qui modifient viennent forcément de notre interface (JSON)
-    if (!['GET', 'HEAD'].includes(req.method) && !req.is('application/json')) {
+    // (un formulaire d'un autre site ne peut envoyer ni JSON ni DELETE sans autorisation CORS)
+    if (['POST', 'PUT', 'PATCH'].includes(req.method) && !req.is('application/json')) {
       return res.status(415).json({ error: 'JSON attendu' });
     }
     next();
@@ -150,16 +164,33 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
 
   // --- Appareils ---
 
-  api.get('/devices', (_req, res) => res.json(store.listDevices()));
+  // IP fixe de l'appareil (bail statique), d'après la dernière lecture de la box
+  const leaseOf = (device) => (device.mac
+    ? collector.staticLeases.find((l) => normalizeMac(l.mac) === normalizeMac(device.mac)) ?? null
+    : null);
+
+  api.get('/devices', (_req, res) => res.json(store.listDevices().map((d) => ({ ...d, fixedIp: Boolean(leaseOf(d)) }))));
 
   api.get('/devices/:key', (req, res) => {
     const device = store.getDevice(req.params.key);
     if (!device) return res.status(404).json({ error: 'Appareil inconnu' });
     const days = Math.min(Number.parseInt(req.query.days, 10) || 7, 365);
+    const raw = store.getDeviceRaw(device.key) ?? {};
+    const lease = leaseOf(device);
     res.json({
       ...device,
       sessions: store.deviceSessions(device.key, now() - days * 86400),
       events: store.listEvents({ deviceKey: device.key, limit: 50 }),
+      box: {
+        persistent: Boolean(raw.persistent),
+        // Nom DNS local (API 16) : null si la box ne le gère pas
+        localDomain: raw.local_domain || null,
+        domainName: raw.local_domain ? (raw.domain_name ?? '') : null,
+        ipv6: (raw.l3connectivities ?? []).filter((c) => c.af === 'ipv6').map((c) => c.addr),
+        otherNames: (raw.names ?? []).filter((n) => n.name && n.name !== device.name).map((n) => ({ name: n.name, source: n.source ?? '' })),
+        info: infoSections(raw.info),
+      },
+      lease: lease ? { id: lease.id, ip: lease.ip, comment: lease.comment ?? '' } : null,
     });
   });
 
@@ -234,6 +265,8 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
     });
   });
 
+  api.use(boxRouter({ freebox, store, collector }));
+
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);
 
@@ -248,9 +281,13 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
 
   // Erreurs : message lisible pour l'interface, détails dans les logs
   app.use((err, _req, res, _next) => {
-    const status = err.code === 'not_paired' ? 409
-      : err.name === 'FreeboxError' ? (err.code === 'insufficient_rights' ? 403 : 502)
-        : 500;
+    let status = 500;
+    if (err.status && err.name !== 'FreeboxError') status = err.status; // HttpError, JSON invalide...
+    else if (err.code === 'not_paired') status = 409;
+    else if (err.name === 'FreeboxError') {
+      // Refus de la box (paramètre invalide...) : erreur de la demande, pas du serveur
+      status = err.code === 'insufficient_rights' ? 403 : err.code === 'unreachable' || !err.status || err.status >= 500 ? 502 : 400;
+    }
     if (status === 500) log.error(err);
     const hint = err.code === 'insufficient_rights'
       ? ' : dans Freebox OS, Paramètres > Gestion des accès > Applications, coche « Modification des réglages » pour Freebox Monitor (serveur)'

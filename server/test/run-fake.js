@@ -4,10 +4,15 @@ import { host, startFakeFreebox } from './fake-freebox.js';
 const box = await startFakeFreebox(8090);
 const t = Math.floor(Date.now() / 1000);
 box.state.hosts = [
-  host('ether-1', 'AA:00:00:00:00:01', 'proxmox', { ip: '192.168.1.20' }),
+  { ...host('ether-1', 'AA:00:00:00:00:01', 'proxmox', { ip: '192.168.1.20' }), local_domain: 'home.arpa', domain_name: 'pve.home.arpa', names: [{ name: 'pve', source: 'dhcp' }], info: { upnp: { modelName: 'Proxmox VE', manufacturer: 'Proxmox' } } },
   host('ether-2', 'AA:00:00:00:00:02', 'homeassistant', { ip: '192.168.1.30' }),
   host('ether-3', 'AA:00:00:00:00:03', 'iPhone de Julien', { ip: '192.168.1.51' }),
   host('ether-4', 'AA:00:00:00:00:04', 'Imprimante', { ip: '192.168.1.60', reachable: false, lastSeen: t - 7200 }),
+];
+box.state.staticLeases = [{ id: 'AA:00:00:00:00:02', mac: 'AA:00:00:00:00:02', ip: '192.168.1.30', comment: 'Home Assistant', hostname: 'homeassistant' }];
+box.state.dynamicLeases = [
+  { mac: 'AA:00:00:00:00:01', ip: '192.168.1.20', hostname: 'proxmox', is_static: false, lease_remaining: 40000 },
+  { mac: 'AA:00:00:00:00:03', ip: '192.168.1.51', hostname: 'iPhone', is_static: false, lease_remaining: 3000 },
 ];
 // Validation automatique de l'association au bout de 4 s, débits qui bougent
 setTimeout(() => { box.state.authStatus = 'granted'; }, 4000);

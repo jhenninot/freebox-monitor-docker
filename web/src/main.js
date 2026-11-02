@@ -8,6 +8,8 @@ import EventsView from './views/EventsView.vue';
 import HomeView from './views/HomeView.vue';
 import LoginView from './views/LoginView.vue';
 import PairingView from './views/PairingView.vue';
+import DhcpView from './views/network/DhcpView.vue';
+import NetworkView from './views/network/NetworkView.vue';
 
 const router = createRouter({
   history: createWebHistory(),
@@ -15,6 +17,8 @@ const router = createRouter({
     { path: '/', component: HomeView, meta: { title: 'Accueil' } },
     { path: '/appareils', component: DevicesView, meta: { title: 'Appareils' } },
     { path: '/appareils/:key', component: DeviceView, props: (r) => ({ deviceKey: r.params.key }), meta: { title: 'Appareil' } },
+    { path: '/reseau', component: NetworkView, meta: { title: 'Réseau' } },
+    { path: '/reseau/ip-fixes', component: DhcpView, meta: { title: 'IP fixes' } },
     { path: '/journal', component: EventsView, meta: { title: 'Journal et alertes' } },
     { path: '/association', component: PairingView, meta: { title: 'Association' } },
     { path: '/connexion', component: LoginView, meta: { title: 'Connexion', public: true } },

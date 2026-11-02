@@ -19,7 +19,15 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Appareils**
 - Liste avec recherche (nom, IP, MAC, fabricant), filtres (en ligne, hors ligne, surveillés), tri (nom, IP, activité, fabricant)
 - Étoile pour surveiller un appareil, appareils masqués en bas de liste
-- Fiche : détails, renommage dans la Freebox, **historique de présence** (arrivées, départs, part du temps en ligne sur 1, 7 ou 30 jours)
+- Fiche : détails, **historique de présence** (arrivées, départs, part du temps en ligne sur 1, 7 ou 30 jours)
+- Dans la box depuis la fiche : renommer, changer le type, nom local (`proxmox.home.arpa`, API 16), fixer l'IP,
+  réveil Wake-on-LAN, bloquer / débloquer en Wi-Fi (liste noire du filtrage MAC), oublier l'appareil
+- Infos détectées par la box : autres noms, IPv6, UPnP, mDNS, DHCP
+- Punaise 📌 sur les appareils qui ont une IP fixe
+
+**Réseau**
+- IP fixes : liste, ajout, modification, suppression, « Fixer » une adresse distribuée automatiquement,
+  rappel des appareils surveillés sans IP fixe
 
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour

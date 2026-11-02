@@ -47,7 +47,7 @@ code { font-size: 0.9em; }
 .brand { display: flex; align-items: center; gap: 0.5rem; font-weight: 600; text-decoration: none; }
 .topbar nav { display: flex; gap: 0.25rem; }
 .topbar nav a { text-decoration: none; padding: 0.35rem 0.7rem; border-radius: 8px; color: var(--muted); }
-.topbar nav a.router-link-exact-active, .topbar nav a:hover { background: var(--bg); color: var(--text); }
+.topbar nav a.router-link-exact-active, .topbar nav a.router-link-active:not([href="/"]), .topbar nav a:hover { background: var(--bg); color: var(--text); }
 .spacer { flex: 1; }
 
 main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
@@ -139,3 +139,18 @@ th { color: var(--muted); font-weight: 500; }
   .events li { grid-template-columns: 1fr; gap: 0.2rem; }
   .topbar nav { order: 3; width: 100%; }
 }
+
+.suffixed { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 200px; }
+.suffixed input { flex: 1; min-width: 0; }
+.ip-input { width: 10rem; }
+form.row { margin-bottom: 0.6rem; }
+form.row input:not(.ip-input) { flex: 1; min-width: 140px; }
+details { margin-top: 0.5rem; }
+summary { cursor: pointer; color: var(--muted); }
+.pin { font-size: 0.85rem; }
+.link-card { text-decoration: none; display: block; }
+.link-card:hover { border-color: var(--accent); }
+.link-card p { margin: 0; }
+.banner { background: var(--bg); border: 1px solid var(--border); border-left: 3px solid #e8b10e; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
+td.actions { text-align: right; white-space: nowrap; }
+td input { width: 100%; }

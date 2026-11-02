@@ -153,6 +153,17 @@ export class Store {
     return row ? deviceRow(row) : null;
   }
 
+  /** Dernière réponse brute de la box pour cet appareil (noms, infos UPnP / mDNS, nom local...). */
+  getDeviceRaw(key) {
+    const row = this.db.prepare('SELECT raw FROM devices WHERE key = ?').get(key);
+    return row?.raw ? JSON.parse(row.raw) : null;
+  }
+
+  /** Oublie un appareil (et son historique de présence). */
+  deleteDevice(key) {
+    this.db.prepare('DELETE FROM devices WHERE key = ?').run(key);
+  }
+
   deviceKeys() {
     return new Set(this.db.prepare('SELECT key FROM devices').all().map((r) => r.key));
   }
