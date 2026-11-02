@@ -2,7 +2,8 @@
 // Même logique que l'appli Android (FreeboxRepository.kt), avec son propre app_id.
 import { hmacSha1Hex } from '../security.js';
 
-export const APP_ID = 'fr.jhenninot.freeboxmonitor.docker';
+// La Freebox refuse les app_id trop longs (« app_id is too long ») : rester court
+export const APP_ID = 'fr.jhenninot.fbmonitor';
 export const APP_NAME = 'Freebox Monitor (serveur)';
 const DEFAULT_API_MAJOR = 8;
 const MAX_API_MAJOR = 16;
