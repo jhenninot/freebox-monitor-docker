@@ -32,6 +32,9 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 
 ## Installation dans Dockhand
 
+> Pour l'installer plutôt dans une **VM de la Freebox** (Delta ou Ultra, processeur ARM) :
+> voir [docs/vm-freebox.md](docs/vm-freebox.md). L'image est publiée pour amd64 et arm64.
+
 1. **Secret** : générer une chaîne aléatoire, par exemple `openssl rand -hex 32`. Elle chiffre le jeton Freebox :
    si elle change, il faudra refaire l'association.
 2. **Accès à l'image** : elle est publiée par la CI sur `ghcr.io/jhenninot/freebox-monitor-docker`. Si le paquet est privé,

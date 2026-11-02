@@ -1,15 +1,19 @@
 # Image unique : interface Vue construite + serveur Node (Express, SQLite intégré à Node)
 
+# Multi-architecture (amd64 pour le serveur Docker, arm64 pour une VM Freebox Delta/Ultra) :
+# les étapes 1 et 2 ne produisent que du JavaScript, elles tournent sur la machine de build
+# sans émulation ; seule l'image finale est construite pour chaque architecture.
+
 # 1. Interface
-FROM node:22-alpine AS web
+FROM --platform=$BUILDPLATFORM node:22-alpine AS web
 WORKDIR /web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci --no-audit --no-fund
 COPY web/ ./
 RUN npm run build
 
-# 2. Dépendances du serveur
-FROM node:22-alpine AS deps
+# 2. Dépendances du serveur (Express uniquement, pas de module natif)
+FROM --platform=$BUILDPLATFORM node:22-alpine AS deps
 WORKDIR /app
 COPY server/package.json server/package-lock.json ./
 RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
