@@ -11,6 +11,10 @@ box.state.hosts = [
   // Pour essayer le scan de ports : cette machine (l'interface sur 8080, la fausse box sur 8090)
   host('ether-5', 'AA:00:00:00:00:05', 'Cette machine', { ip: '127.0.0.1' }),
 ];
+// Appareils en câble (les autres sont en Wi-Fi)
+for (const h of box.state.hosts.filter((x) => ['proxmox', 'homeassistant', 'Imprimante'].includes(x.primary_name))) {
+  h.access_point = { connectivity_type: 'ethernet' };
+}
 box.state.staticLeases = [{ id: 'AA:00:00:00:00:02', mac: 'AA:00:00:00:00:02', ip: '192.168.1.30', comment: 'Home Assistant', hostname: 'homeassistant' }];
 box.state.dynamicLeases = [
   { mac: 'AA:00:00:00:00:01', ip: '192.168.1.20', hostname: 'proxmox', is_static: false, lease_remaining: 40000 },

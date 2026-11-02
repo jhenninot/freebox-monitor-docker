@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '../api.js';
+import LinkIcon from '../components/LinkIcon.vue';
 import { ago, HOST_TYPES } from '../format.js';
 import { live } from '../live.js';
 
@@ -73,7 +74,7 @@ async function toggle(device, field) {
       <li v-for="d in shown" :key="d.key" :class="{ offline: !d.online }">
         <button class="star" :class="{ on: d.watched }" :title="d.watched ? 'Ne plus surveiller' : 'Surveiller'" @click="toggle(d, 'watched')">★</button>
         <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
-          <span class="dot" :class="d.online ? 'ok' : 'off'" />
+          <LinkIcon :link="d.link" :online="d.online" />
           <span class="name">{{ d.name }}<span v-if="d.fixedIp" class="pin" title="IP fixe"> 📌</span></span>
           <span class="muted small">{{ HOST_TYPES[d.hostType] ?? d.hostType }}<template v-if="d.vendor"> · {{ d.vendor }}</template></span>
           <span class="ip">{{ d.ipv4 ?? '' }}</span>
@@ -89,7 +90,7 @@ async function toggle(device, field) {
         <li v-for="d in hidden" :key="d.key" class="offline">
           <span class="star" />
           <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
-            <span class="dot" :class="d.online ? 'ok' : 'off'" />
+            <LinkIcon :link="d.link" :online="d.online" />
             <span class="name">{{ d.name }}</span>
             <span class="muted small">{{ d.vendor }}</span>
             <span class="ip">{{ d.ipv4 ?? '' }}</span>
