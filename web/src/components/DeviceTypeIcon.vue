@@ -3,7 +3,11 @@
 import { computed } from 'vue';
 import { HOST_TYPES } from '../format.js';
 
-const props = defineProps({ type: { type: String, default: 'other' } });
+const props = defineProps({
+  type: { type: String, default: 'other' },
+  small: { type: Boolean, default: false },
+  large: { type: Boolean, default: false },
+});
 
 const GROUPS = {
   workstation: 'desktop', laptop: 'laptop', smartphone: 'phone', ip_phone: 'phone', tablet: 'tablet', printer: 'printer',
@@ -34,12 +38,16 @@ const label = computed(() => HOST_TYPES[props.type] ?? props.type ?? 'Autre');
 </script>
 
 <template>
-  <span class="type-icon" :title="label" role="img" :aria-label="label">
+  <span class="type-icon" :class="{ small, large }" :title="label" role="img" :aria-label="label">
     <svg viewBox="0 0 24 24" aria-hidden="true"><path v-for="d in paths" :key="d" :d="d" /></svg>
   </span>
 </template>
 
 <style scoped>
 .type-icon { width: 34px; height: 34px; border-radius: 10px; flex: none; display: inline-grid; place-items: center; background: var(--bg); color: var(--text); }
+.type-icon.small { width: 26px; height: 26px; border-radius: 8px; }
+.type-icon.small svg { width: 16px; height: 16px; }
+.type-icon.large { width: 40px; height: 40px; border-radius: 12px; background: var(--card); border: 1px solid var(--border); }
+.type-icon.large svg { width: 24px; height: 24px; }
 .type-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 </style>

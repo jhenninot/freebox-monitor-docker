@@ -2,8 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api.js';
+import DeviceTypeIcon from '../components/DeviceTypeIcon.vue';
 import Icon from '../components/Icon.vue';
+import LinkIcon from '../components/LinkIcon.vue';
 import RateChart from '../components/RateChart.vue';
+import TypeSelect from '../components/TypeSelect.vue';
 import { ago, bytes, date, duration, EVENT_LABELS, HOST_TYPES, rate } from '../format.js';
 import { live } from '../live.js';
 
@@ -202,7 +205,7 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
 <template>
   <section v-if="device">
     <RouterLink to="/appareils" class="muted">← Appareils</RouterLink>
-    <h1><span class="dot" :class="device.online ? 'ok' : 'off'" /> {{ device.name }}</h1>
+    <h1><DeviceTypeIcon :type="device.hostType" large /> {{ device.name }} <LinkIcon :link="device.link" :online="device.online" small /></h1>
     <div class="grid">
       <article class="card">
         <dl>
@@ -224,9 +227,7 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
           <button :disabled="busy">Renommer</button>
         </form>
         <form class="row" @submit.prevent="saveType">
-          <select v-model="hostType" aria-label="Type d'appareil">
-            <option v-for="(label, value) in HOST_TYPES" :key="value" :value="value">{{ label }}</option>
-          </select>
+          <TypeSelect v-model="hostType" />
           <button :disabled="busy || hostType === device.hostType">Changer le type</button>
         </form>
         <form v-if="device.box.localDomain" class="row" @submit.prevent="saveDomain">
