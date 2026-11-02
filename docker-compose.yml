@@ -1,0 +1,28 @@
+# Freebox Monitor : stack Dockhand.
+# Coller ce fichier dans Dockhand, puis renseigner les variables d'environnement de la stack
+# (APP_SECRET, ADMIN_PASSWORD, et facultativement NTFY_URL / NTFY_TOPIC). Aucun fichier à déposer sur le serveur.
+services:
+  freebox-monitor:
+    image: ghcr.io/jhenninot/freebox-monitor-docker:latest
+    container_name: freebox-monitor
+    restart: unless-stopped
+    environment:
+      TZ: Europe/Paris
+      # Chiffre le jeton Freebox et signe les sessions (openssl rand -hex 32). Ne plus le changer ensuite.
+      APP_SECRET: ${APP_SECRET}
+      # Mot de passe de l'interface (8 caractères minimum)
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Adresse de la Freebox vue depuis le conteneur
+      FREEBOX_URL: ${FREEBOX_URL:-http://mafreebox.freebox.fr}
+      # Facultatif : alertes sur le téléphone avec ntfy (https://ntfy.sh ou ton instance)
+      NTFY_URL: ${NTFY_URL:-}
+      NTFY_TOPIC: ${NTFY_TOPIC:-}
+      NTFY_TOKEN: ${NTFY_TOKEN:-}
+    ports:
+      - "8086:8080"
+    volumes:
+      # Base SQLite + sauvegardes quotidiennes, gardées par Docker (volume nommé)
+      - freebox-monitor-data:/data
+
+volumes:
+  freebox-monitor-data:

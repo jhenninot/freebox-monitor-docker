@@ -1,0 +1,21 @@
+{
+  "name": "freebox-monitor-server",
+  "version": "0.1.0",
+  "description": "Serveur Freebox Monitor : collecte, historique, alertes et API de l'interface web",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning src/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch src/index.js",
+    "test": "node --disable-warning=ExperimentalWarning --test test/*.test.js",
+    "fake-freebox": "node test/run-fake.js"
+  },
+  "engines": {
+    "node": ">=22.13"
+  },
+  "dependencies": {
+    "express": "5.1.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}

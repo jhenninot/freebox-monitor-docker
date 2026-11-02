@@ -1,0 +1,29 @@
+import { createApp } from 'vue';
+import { createRouter, createWebHistory } from 'vue-router';
+import App from './App.vue';
+import './style.css';
+import DeviceView from './views/DeviceView.vue';
+import DevicesView from './views/DevicesView.vue';
+import EventsView from './views/EventsView.vue';
+import HomeView from './views/HomeView.vue';
+import LoginView from './views/LoginView.vue';
+import PairingView from './views/PairingView.vue';
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', component: HomeView, meta: { title: 'Accueil' } },
+    { path: '/appareils', component: DevicesView, meta: { title: 'Appareils' } },
+    { path: '/appareils/:key', component: DeviceView, props: (r) => ({ deviceKey: r.params.key }), meta: { title: 'Appareil' } },
+    { path: '/journal', component: EventsView, meta: { title: 'Journal et alertes' } },
+    { path: '/association', component: PairingView, meta: { title: 'Association' } },
+    { path: '/connexion', component: LoginView, meta: { title: 'Connexion', public: true } },
+    { path: '/:pathMatch(.*)*', redirect: '/' },
+  ],
+});
+
+router.afterEach((to) => {
+  document.title = `${to.meta.title} · Freebox Monitor`;
+});
+
+createApp(App).use(router).mount('#app');
