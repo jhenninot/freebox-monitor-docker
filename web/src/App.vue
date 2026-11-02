@@ -13,7 +13,7 @@ async function checkPairing() {
   try {
     const info = await api('/freebox');
     paired.value = info.paired;
-    if (!info.paired && route.path !== '/association') router.replace('/association');
+    if (!info.paired && !['/association', '/compte'].includes(route.path)) router.replace('/association');
   } catch {
     // erreur réseau : on reste sur l'écran courant
   }

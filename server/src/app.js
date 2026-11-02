@@ -54,7 +54,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
   const api = express.Router();
-  const allowLogin = ipLimiter();
+  const ipFailures = ipLimiter();
 
   // --- Connexion à l'interface ---
 
@@ -97,7 +97,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
 
   // Création du premier compte, possible seulement tant qu'il n'en existe aucun
   api.post('/auth/setup', async (req, res) => {
-    if (!allowLogin(req.ip)) return tooMany(res);
+    if (ipFailures.blocked(req.ip)) return tooMany(res);
     if (accounts.count() > 0) return res.status(409).json({ error: 'Un compte existe déjà' });
     const username = text(req.body?.username).trim();
     const password = text(req.body?.password);
@@ -115,10 +115,11 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
   });
 
   api.post('/auth/login', async (req, res) => {
-    if (!allowLogin(req.ip)) return tooMany(res);
+    if (ipFailures.blocked(req.ip)) return tooMany(res);
     const result = await accounts.authenticate(text(req.body?.username).trim(), text(req.body?.password));
     if (result.error === 'locked') return tooMany(res, result.retryAfter);
     if (!result.user) {
+      ipFailures.fail(req.ip);
       log.warn(`Connexion refusée depuis ${req.ip}`);
       if (result.retryAfter) return tooMany(res, result.retryAfter);
       return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
@@ -137,11 +138,12 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
     const user = sessionOf(req);
     if (!user) return res.status(401).json({ error: 'Connexion requise' });
     if (!req.is('application/json')) return res.status(415).json({ error: 'JSON attendu' });
-    if (!allowLogin(req.ip)) return tooMany(res);
+    if (ipFailures.blocked(req.ip)) return tooMany(res);
     const current = text(req.body?.currentPassword);
     const next = text(req.body?.newPassword);
     const check = await accounts.authenticate(user.username, current);
     if (check.error === 'locked' || check.retryAfter) return tooMany(res, check.retryAfter);
+    if (!check.user) ipFailures.fail(req.ip);
     if (!check.user) return res.status(400).json({ error: 'Mot de passe actuel incorrect', code: 'bad_current_password' });
     const error = passwordError(next, user.username);
     if (error) return res.status(400).json({ error });
@@ -149,6 +151,30 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
     const updated = await accounts.setPassword(user.id, next);
     log.info?.(`Mot de passe du compte « ${user.username} » changé`);
     openSession(req, res, updated);
+    res.json(me(updated));
+  });
+
+  // Changement d'identifiant : demande le mot de passe actuel
+  api.post('/auth/username', async (req, res) => {
+    const user = sessionOf(req);
+    if (!user) return res.status(401).json({ error: 'Connexion requise' });
+    if (!req.is('application/json')) return res.status(415).json({ error: 'JSON attendu' });
+    if (user.mustChange) return res.status(403).json({ error: 'Change d\'abord ton mot de passe', code: 'password_change_required' });
+    if (ipFailures.blocked(req.ip)) return tooMany(res);
+    const current = text(req.body?.currentPassword);
+    const username = text(req.body?.newUsername).trim();
+    const check = await accounts.authenticate(user.username, current);
+    if (check.error === 'locked' || check.retryAfter) return tooMany(res, check.retryAfter);
+    if (!check.user) ipFailures.fail(req.ip);
+    if (!check.user) return res.status(400).json({ error: 'Mot de passe actuel incorrect', code: 'bad_current_password' });
+    const error = usernameError(username);
+    if (error) return res.status(400).json({ error });
+    if (current.toLowerCase().includes(username.toLowerCase())) {
+      return res.status(400).json({ error: 'Ton mot de passe contient ce nouvel identifiant : change d\'abord de mot de passe' });
+    }
+    const updated = accounts.rename(user.id, username);
+    if (!updated) return res.status(409).json({ error: 'Cet identifiant est déjà pris' });
+    log.info?.(`Compte « ${user.username} » renommé en « ${username} »`);
     res.json(me(updated));
   });
 

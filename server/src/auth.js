@@ -65,16 +65,16 @@ export function randomPassword() {
   }
 }
 
-/** Limite les essais par adresse IP : 10 par quart d'heure. */
+/** Limite les essais ratés par adresse IP : au-delà de 10 par quart d'heure, l'adresse est refusée. */
 export function ipLimiter({ max = 10, windowMs = 15 * 60 * 1000 } = {}) {
-  const attempts = new Map();
-  return (ip) => {
-    const t = Date.now();
-    const list = (attempts.get(ip) || []).filter((x) => t - x < windowMs);
-    list.push(t);
-    attempts.set(ip, list);
-    if (attempts.size > 10000) attempts.clear();
-    return list.length <= max;
+  const failures = new Map();
+  const recent = (ip) => (failures.get(ip) || []).filter((x) => Date.now() - x < windowMs);
+  return {
+    blocked: (ip) => recent(ip).length >= max,
+    fail(ip) {
+      if (failures.size > 10000) failures.clear();
+      failures.set(ip, [...recent(ip), Date.now()]);
+    },
   };
 }
 
@@ -140,6 +140,14 @@ export class Accounts {
     const hash = await hashPassword(password, this.hashParams);
     this.db.prepare(`UPDATE users SET password_hash = ?, must_change = ?, session_version = session_version + 1,
       failed_attempts = 0, locked_until = 0, password_changed_at = ? WHERE id = ?`).run(hash, mustChange ? 1 : 0, now(), id);
+    return this.get(id);
+  }
+
+  /** Nouvel identifiant. Renvoie le compte, ou null si l'identifiant est déjà pris. */
+  rename(id, username) {
+    const other = this.find(username);
+    if (other && other.id !== id) return null;
+    this.db.prepare('UPDATE users SET username = ? WHERE id = ?').run(username, id);
     return this.get(id);
   }
 

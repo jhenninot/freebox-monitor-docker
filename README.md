@@ -110,8 +110,8 @@ Le flux temps réel (Server-Sent Events) désactive lui-même la mise en tampon 
 
 On se connecte avec un **identifiant** et un **mot de passe**, gardé haché en base (scrypt, avec sel).
 Règles : 12 caractères minimum, avec au moins une minuscule, une majuscule, un chiffre et un caractère spécial,
-et sans contenir l'identifiant. Le mot de passe se change dans **Mon compte** (clic sur l'identifiant en haut à droite) :
-les autres appareils connectés sont alors déconnectés.
+et sans contenir l'identifiant. Le mot de passe et l'identifiant se changent dans **Mon compte** (clic sur l'identifiant en haut à droite),
+en redonnant le mot de passe actuel. Un nouveau mot de passe déconnecte les autres appareils.
 
 - **Premier compte** : s'il n'existe encore aucun compte, le serveur crée au démarrage le compte `ADMIN_USERNAME`
   (`admin` par défaut) avec le mot de passe `ADMIN_PASSWORD`. Si ce mot de passe ne respecte pas les règles, il faut le
@@ -119,7 +119,7 @@ les autres appareils connectés sont alors déconnectés.
   Sans `ADMIN_PASSWORD`, l'interface propose de créer le premier compte (à faire tout de suite après l'installation).
 - **Mise à jour depuis l'ancienne version** (mot de passe seul) : se connecter avec l'identifiant `admin` et l'ancien
   mot de passe, puis en choisir un nouveau si demandé. Les anciennes sessions sont fermées par la mise à jour.
-- **Essais limités** : 10 essais par quart d'heure et par adresse IP ; après 5 échecs de suite sur un compte, il est
+- **Essais limités** : 10 essais ratés par quart d'heure et par adresse IP ; après 5 échecs de suite sur un compte, il est
   bloqué 1 min, puis 2, 4... jusqu'à 15 min.
 - **Mot de passe oublié** : `docker exec -it freebox-monitor node src/cli.js reinitialiser admin` affiche un mot de passe
   provisoire, à changer à la connexion suivante (`node src/cli.js comptes` liste les comptes).

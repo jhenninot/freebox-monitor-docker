@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { Accounts, hashPassword, passwordProblems, randomPassword, usernameError, verifyPassword } from '../src/auth.js';
+import { Accounts, hashPassword, ipLimiter, passwordProblems, randomPassword, usernameError, verifyPassword } from '../src/auth.js';
 import { openDatabase } from '../src/db.js';
 import { startHarness } from './harness.js';
 
@@ -17,6 +17,13 @@ test('politique de mot de passe', () => {
   assert.deepEqual(passwordProblems(randomPassword()), []);
   assert.equal(usernameError('julien'), null);
   assert.ok(usernameError('a b'));
+});
+
+test('essais ratés limités par adresse IP', () => {
+  const limiter = ipLimiter({ max: 3 });
+  for (let i = 0; i < 3; i += 1) { assert.ok(!limiter.blocked('1.2.3.4')); limiter.fail('1.2.3.4'); }
+  assert.ok(limiter.blocked('1.2.3.4'));
+  assert.ok(!limiter.blocked('5.6.7.8'));
 });
 
 test('hachage scrypt', async () => {
@@ -59,6 +66,17 @@ test('premier compte depuis l\'interface, changement de mot de passe et sessions
     await h.call('POST', '/api/auth/logout', {});
     assert.equal((await h.call('POST', '/api/auth/login', { username: 'julien', password: 'Motdepasse-2026!' })).status, 401);
     assert.equal((await h.call('POST', '/api/auth/login', { username: 'julien', password: 'Autre-Secret-42?' })).status, 200);
+
+    // Changement d'identifiant
+    assert.equal((await h.call('POST', '/api/auth/username', { currentPassword: 'faux', newUsername: 'jh' })).body.code, 'bad_current_password');
+    assert.equal((await h.call('POST', '/api/auth/username', { currentPassword: 'Autre-Secret-42?', newUsername: 'a b' })).status, 400);
+    assert.equal((await h.call('POST', '/api/auth/username', { currentPassword: 'Autre-Secret-42?', newUsername: 'secret' })).status, 400, 'contenu dans le mot de passe');
+    const renamed = await h.call('POST', '/api/auth/username', { currentPassword: 'Autre-Secret-42?', newUsername: 'jhenninot' });
+    assert.equal(renamed.body.username, 'jhenninot');
+    assert.equal((await h.call('GET', '/api/devices')).status, 200, 'session gardée');
+    await h.call('POST', '/api/auth/logout', {});
+    assert.equal((await h.call('POST', '/api/auth/login', { username: 'julien', password: 'Autre-Secret-42?' })).status, 401);
+    assert.equal((await h.call('POST', '/api/auth/login', { username: 'jhenninot', password: 'Autre-Secret-42?' })).status, 200);
 
     // Base vide : le premier compte se crée depuis l'interface
     h.store.db.exec('DELETE FROM users');
