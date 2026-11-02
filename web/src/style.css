@@ -127,8 +127,6 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
 .device .ip { font-variant-numeric: tabular-nums; }
 .device .main { display: flex; flex-direction: column; min-width: 0; }
 .device .sub { display: none; font-size: 0.85rem; color: var(--muted); }
-.star { background: none; border: 0; color: var(--border); font-size: 1.2rem; padding: 0 0.2rem; width: 1.6rem; }
-.star.on { color: #e8b10e; }
 
 .presence { position: relative; height: 22px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; margin: 0.5rem 0 0.25rem; }
 .presence span { position: absolute; top: 0; bottom: 0; background: var(--ok); opacity: 0.8; }
@@ -183,3 +181,4 @@ textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85r
 .qr { width: 240px; text-align: center; }
 .qr svg { width: 240px; height: 240px; background: #fff; border-radius: 8px; }
 .badge { white-space: nowrap; }
+.badge-icon { margin-left: 0.3rem; font-size: 0.9rem; }

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api.js';
+import Icon from '../components/Icon.vue';
 import RateChart from '../components/RateChart.vue';
 import { ago, bytes, date, duration, EVENT_LABELS, HOST_TYPES, rate } from '../format.js';
 import { live } from '../live.js';
@@ -248,7 +249,7 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
     <div class="grid">
       <article v-if="device.mac" class="card">
         <h2>IP fixe</h2>
-        <p v-if="device.lease">📌 Réservée : <strong>{{ device.lease.ip }}</strong></p>
+        <p v-if="device.lease"><Icon name="pin" /> Réservée : <strong>{{ device.lease.ip }}</strong></p>
         <p v-else class="muted">L'adresse de cet appareil est distribuée automatiquement et peut changer.</p>
         <form class="row" @submit.prevent="saveLease">
           <input v-model="leaseIp" placeholder="192.168.1.x" required aria-label="Adresse IP" class="ip-input">

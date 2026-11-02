@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '../api.js';
 import DeviceTypeIcon from '../components/DeviceTypeIcon.vue';
+import Icon from '../components/Icon.vue';
 import LinkIcon from '../components/LinkIcon.vue';
 import { ago, HOST_TYPES } from '../format.js';
 import { live } from '../live.js';
@@ -69,14 +70,14 @@ async function toggle(device, field) {
       </select>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
-    <p class="muted small">{{ shown.length }} appareils affichés · ⭐ = surveillé (alerte s'il passe hors ligne, à régler sur sa fiche) · 📌 = IP fixe</p>
+    <p class="muted small">{{ shown.length }} appareils affichés · <Icon name="star" /> surveillé (alerte s'il passe hors ligne, à régler sur sa fiche) · <Icon name="pin" /> IP fixe</p>
 
     <ul class="devices">
       <li v-for="d in shown" :key="d.key" :class="{ offline: !d.online }">
         <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
           <DeviceTypeIcon :type="d.hostType" />
           <span class="main">
-            <span class="name">{{ d.name }}<span v-if="d.fixedIp" class="pin" title="IP fixe"> 📌</span><span v-if="d.watched" class="pin" title="Surveillé"> ⭐</span></span>
+            <span class="name">{{ d.name }}<Icon v-if="d.fixedIp" name="pin" title="IP fixe" class="badge-icon" /><Icon v-if="d.watched" name="star" title="Surveillé" class="badge-icon" /></span>
             <span class="sub ip">{{ d.ipv4 ?? '' }}</span>
           </span>
           <span class="muted small">{{ HOST_TYPES[d.hostType] ?? d.hostType }}<template v-if="d.vendor"> · {{ d.vendor }}</template></span>

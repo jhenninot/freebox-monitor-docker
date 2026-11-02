@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue';
 import { api } from '../../api.js';
+import Icon from '../../components/Icon.vue';
 
 const data = ref(null);
 const error = ref('');
@@ -115,7 +116,7 @@ const range = computed(() => data.value?.ipv4PortRange);
                 </td>
               </tr>
               <tr v-if="r.enabled && r.warnings.length" class="warnings">
-                <td colspan="4"><p v-for="w in r.warnings" :key="w" class="small">⚠️ {{ w }}</p></td>
+                <td colspan="4"><p v-for="w in r.warnings" :key="w" class="small"><Icon name="warning" /> {{ w }}</p></td>
               </tr>
             </template>
           </tbody>
