@@ -72,6 +72,20 @@ const MIGRATIONS = [
   );
   CREATE INDEX events_ts ON events(ts);
   `,
+  `
+  -- Scans de ports : ports ouverts (JSON : port, service, banner, web, tls)
+  CREATE TABLE port_scans (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_key  TEXT NOT NULL REFERENCES devices(key) ON DELETE CASCADE,
+    ts          INTEGER NOT NULL,
+    ip          TEXT NOT NULL,
+    full        INTEGER NOT NULL,
+    stopped     INTEGER NOT NULL,
+    nightly     INTEGER NOT NULL DEFAULT 0,
+    ports       TEXT NOT NULL
+  );
+  CREATE INDEX port_scans_device ON port_scans(device_key, ts);
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -296,6 +310,29 @@ export class Store {
       result[key] = stmt.all(key, from, to).map((r) => [r.t, round(r.avg), round(r.min), round(r.max)]);
     }
     return { from, to, bucket, series: result };
+  }
+
+  // --- Scans de ports ---
+
+  addPortScan({ deviceKey, ts = now(), ip, full, stopped, nightly = false, ports }) {
+    const info = this.db.prepare('INSERT INTO port_scans (device_key, ts, ip, full, stopped, nightly, ports) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(deviceKey, ts, ip, full ? 1 : 0, stopped ? 1 : 0, nightly ? 1 : 0, JSON.stringify(ports));
+    // On garde les 20 derniers scans par appareil
+    this.db.prepare(`DELETE FROM port_scans WHERE device_key = ? AND id NOT IN
+      (SELECT id FROM port_scans WHERE device_key = ? ORDER BY ts DESC, id DESC LIMIT 20)`).run(deviceKey, deviceKey);
+    return { id: Number(info.lastInsertRowid), deviceKey, ts, ip, full: Boolean(full), stopped: Boolean(stopped), nightly: Boolean(nightly), ports };
+  }
+
+  listPortScans(deviceKey, limit = 20) {
+    return this.db.prepare('SELECT * FROM port_scans WHERE device_key = ? ORDER BY ts DESC, id DESC LIMIT ?').all(deviceKey, limit)
+      .map((r) => ({
+        id: r.id, deviceKey: r.device_key, ts: r.ts, ip: r.ip, full: Boolean(r.full), stopped: Boolean(r.stopped), nightly: Boolean(r.nightly),
+        ports: JSON.parse(r.ports),
+      }));
+  }
+
+  lastPortScan(deviceKey) {
+    return this.listPortScans(deviceKey, 1)[0] ?? null;
   }
 
   // --- Journal ---

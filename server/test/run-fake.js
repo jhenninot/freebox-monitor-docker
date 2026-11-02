@@ -8,6 +8,8 @@ box.state.hosts = [
   host('ether-2', 'AA:00:00:00:00:02', 'homeassistant', { ip: '192.168.1.30' }),
   host('ether-3', 'AA:00:00:00:00:03', 'iPhone de Julien', { ip: '192.168.1.51' }),
   host('ether-4', 'AA:00:00:00:00:04', 'Imprimante', { ip: '192.168.1.60', reachable: false, lastSeen: t - 7200 }),
+  // Pour essayer le scan de ports : cette machine (l'interface sur 8080, la fausse box sur 8090)
+  host('ether-5', 'AA:00:00:00:00:05', 'Cette machine', { ip: '127.0.0.1' }),
 ];
 box.state.staticLeases = [{ id: 'AA:00:00:00:00:02', mac: 'AA:00:00:00:00:02', ip: '192.168.1.30', comment: 'Home Assistant', hostname: 'homeassistant' }];
 box.state.dynamicLeases = [

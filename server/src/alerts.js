@@ -6,12 +6,19 @@ export const DEFAULT_ALERT_SETTINGS = {
   offline: true,
   // Délai sans réponse avant de considérer un appareil surveillé hors ligne
   offlineMinutes: 10,
+  // Scan de ports de nuit des appareils surveillés : alerte si un port s'ouvre
+  nightlyScan: true,
+  nightlyScanHour: 3,
 };
 
 /** Normalise des réglages reçus de l'interface. */
 export function cleanAlertSettings(input = {}, current = DEFAULT_ALERT_SETTINGS) {
   const minutes = Number.parseInt(input.offlineMinutes ?? current.offlineMinutes, 10);
+  const hour = Number.parseInt(input.nightlyScanHour ?? current.nightlyScanHour, 10);
+  const defaults = DEFAULT_ALERT_SETTINGS;
   return {
+    nightlyScan: typeof input.nightlyScan === 'boolean' ? input.nightlyScan : (current.nightlyScan ?? defaults.nightlyScan),
+    nightlyScanHour: Number.isFinite(hour) && hour >= 0 && hour <= 23 ? hour : (current.nightlyScanHour ?? defaults.nightlyScanHour),
     newDevices: typeof input.newDevices === 'boolean' ? input.newDevices : current.newDevices,
     offline: typeof input.offline === 'boolean' ? input.offline : current.offline,
     offlineMinutes: Number.isFinite(minutes) ? Math.min(Math.max(minutes, 1), 24 * 60) : current.offlineMinutes,

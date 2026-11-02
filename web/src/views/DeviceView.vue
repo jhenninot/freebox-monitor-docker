@@ -160,6 +160,41 @@ watch(() => live.traffic, () => {
   if (device.value && t) device.value.traffic = t;
 });
 
+// Scan de ports fait par le serveur
+const scan = ref(null);
+async function loadScan() {
+  scan.value = await api(path('/scan')).catch(() => null);
+}
+onMounted(loadScan);
+watch(() => live.scan, (p) => {
+  if (!p || p.deviceKey !== props.deviceKey || !scan.value) return;
+  if (p.running) scan.value = { ...scan.value, running: p };
+  else loadScan();
+});
+async function startScan(full) {
+  error.value = '';
+  try {
+    const running = await api(path('/scan'), { method: 'POST', body: { full } });
+    scan.value = { ...scan.value, running };
+  } catch (e) {
+    error.value = e.message;
+  }
+}
+const stopScan = () => api(path('/scan'), { method: 'DELETE' }).catch((e) => { error.value = e.message; });
+const scanPercent = computed(() => {
+  const r = scan.value?.running;
+  return r?.total ? Math.round((r.done / r.total) * 100) : 0;
+});
+// Ports du dernier scan, plus ceux fermés depuis le précédent (barrés)
+const scanRows = computed(() => {
+  const last = scan.value?.last;
+  if (!last) return [];
+  const added = new Set(scan.value.diff?.added ?? []);
+  const rows = last.ports.map((p) => ({ ...p, isNew: added.has(p.port) }));
+  for (const port of scan.value.diff?.removed ?? []) rows.push({ port, service: '', banner: 'fermé depuis le scan précédent', gone: true });
+  return rows.sort((a, b) => a.port - b.port);
+});
+
 const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbios: 'NetBIOS', wsd: 'WS-Discovery' };
 </script>
 
@@ -262,6 +297,45 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
       </div>
       <RateChart v-if="trafficPoints.length" :points="trafficPoints" :range="TRAFFIC_RANGES.find((r) => r.id === trafficRange).seconds" />
       <p class="muted small">{{ device.traffic?.detail ?? '' }}{{ device.traffic?.link === 'wifi' ? ' · volume depuis la connexion au Wi-Fi' : device.traffic ? ' · volume depuis le démarrage de la box' : 'Pas de mesure récente' }}</p>
+    </article>
+
+    <article v-if="scan" class="card">
+      <div class="row between">
+        <h2>Ports ouverts</h2>
+        <div v-if="!scan.running" class="row">
+          <button class="ghost small" :disabled="!device.ipv4" @click="startScan(false)">Scan rapide</button>
+          <button class="ghost small" :disabled="!device.ipv4" @click="startScan(true)">Scan complet</button>
+        </div>
+        <button v-else class="danger small" @click="stopScan">Arrêter</button>
+      </div>
+      <template v-if="scan.running">
+        <p class="small">
+          {{ scan.running.identifying ? 'Lecture des services trouvés…' : `${scan.running.full ? 'Scan complet' : 'Scan rapide'} : ${scan.running.done} / ${scan.running.total} ports testés` }}
+          <template v-if="scan.running.found.length"> · ouverts : {{ scan.running.found.join(', ') }}</template>
+        </p>
+        <progress :value="scanPercent" max="100" />
+      </template>
+      <template v-if="scan.last">
+        <p class="muted small">
+          {{ scan.last.full ? 'Scan complet' : 'Scan rapide' }}{{ scan.last.nightly ? ' de nuit' : '' }} du {{ date(scan.last.ts) }} sur {{ scan.last.ip }}
+          <template v-if="scan.last.stopped"> · arrêté avant la fin</template>
+          <template v-if="scan.diff && !scan.diff.added.length && !scan.diff.removed.length && scan.history.length > 1"> · rien n'a changé depuis le scan précédent</template>
+        </p>
+        <table v-if="scanRows.length">
+          <thead><tr><th>Port</th><th>Service</th><th>Ce qu'il annonce</th></tr></thead>
+          <tbody>
+            <tr v-for="p in scanRows" :key="p.port" :class="{ gone: p.gone }">
+              <td>{{ p.port }}<span v-if="p.isNew" class="badge new">nouveau</span></td>
+              <td><a v-if="p.url" :href="p.url" target="_blank" rel="noopener">{{ p.service }}</a><template v-else>{{ p.service }}</template></td>
+              <td class="small wrap">{{ p.banner ?? '' }}</td>
+            </tr>
+          </tbody>
+        </table>
+        <p v-else class="muted">Aucun port ouvert trouvé.</p>
+      </template>
+      <p v-else-if="!scan.running" class="muted small">
+        Le serveur teste les ports TCP de l'appareil : scan rapide (environ 150 ports courants, quelques secondes) ou complet (1 à 65535, une à deux minutes).
+      </p>
     </article>
 
     <article class="card">

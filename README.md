@@ -28,6 +28,8 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 - Dans la box depuis la fiche : renommer, changer le type, nom local (`proxmox.home.arpa`, API 16), fixer l'IP,
   réveil Wake-on-LAN, bloquer / débloquer en Wi-Fi (liste noire du filtrage MAC), oublier l'appareil
 - Infos détectées par la box : autres noms, IPv6, UPnP, mDNS, DHCP
+- **Scan de ports** fait par le serveur : rapide (~150 ports courants) ou complet (1 à 65535), service et bannière
+  lus sur chaque port (version SSH, titre de la page web, MySQL…), lien vers les pages web, comparaison avec le scan précédent
 - Punaise 📌 sur les appareils qui ont une IP fixe
 
 **Réseau**
@@ -37,6 +39,8 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour
 - Coupure et retour de la connexion Internet, changement d'IPv4 publique, redémarrage de la box
+- Port qui s'ouvre sur un appareil surveillé : scan rapide chaque nuit (heure réglable dans le Journal),
+  comparé au scan précédent
 - Température élevée dans la box (seuil `TEMP_ALERT_CELSIUS`, 85 °C par défaut), puis retour à la normale 5 °C en dessous
 - Tout est inscrit au journal ; envoi sur le téléphone par [ntfy](https://ntfy.sh) si configuré
 

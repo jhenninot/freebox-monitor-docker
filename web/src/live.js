@@ -11,6 +11,8 @@ export const live = reactive({
   devicesVersion: 0,
   // Dernier relevé du trafic par appareil
   traffic: null,
+  // Dernière progression de scan de ports reçue : { deviceKey, running, done, total, found, identifying }
+  scan: null,
   // Débits des 5 dernières minutes pour le graphique « en direct »
   recent: [],
 });
@@ -33,6 +35,7 @@ export function startLive() {
     event(e) { live.lastEvent = e; },
     devices() { live.devicesVersion += 1; },
     traffic(t) { live.traffic = t; },
+    scan(p) { live.scan = p; },
   });
 }
 

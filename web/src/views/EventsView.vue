@@ -36,8 +36,8 @@ async function save() {
   info.value = '';
   error.value = '';
   try {
-    const { newDevices, offline, offlineMinutes } = settings.value;
-    Object.assign(settings.value, await api('/alerts/settings', { method: 'PUT', body: { newDevices, offline, offlineMinutes } }));
+    const { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour } = settings.value;
+    Object.assign(settings.value, await api('/alerts/settings', { method: 'PUT', body: { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour } }));
     info.value = 'Réglages enregistrés';
   } catch (e) {
     error.value = e.message;
@@ -67,7 +67,14 @@ async function test() {
           Hors ligne après
           <input v-model.number="settings.offlineMinutes" type="number" min="1" max="1440"> min sans réponse
         </label>
-        <p class="muted small">Les coupures Internet, changements d'IP publique et redémarrages de la box sont toujours signalés.</p>
+        <label class="check"><input v-model="settings.nightlyScan" type="checkbox"> Port qui s'ouvre sur un appareil surveillé (scan rapide chaque nuit)</label>
+        <label v-if="settings.nightlyScan" class="inline">
+          Scan à
+          <select v-model.number="settings.nightlyScanHour">
+            <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ h - 1 }} h</option>
+          </select>
+        </label>
+        <p class="muted small">Les coupures Internet, changements d'IP publique, redémarrages et surchauffe de la box sont toujours signalés.</p>
         <div class="row">
           <button>Enregistrer</button>
           <button type="button" class="ghost" :disabled="!settings.ntfy.configured" @click="test">Tester la notification</button>

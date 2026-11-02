@@ -6,6 +6,7 @@ import { cleanAlertSettings, DEFAULT_ALERT_SETTINGS } from './alerts.js';
 import { normalizeMac } from './freebox/rules.js';
 import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
+import { scanRouter } from './routes/scan.js';
 import { passwordMatches } from './security.js';
 
 const COOKIE = 'fbm_session';
@@ -236,13 +237,14 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
 
   api.get('/alerts/settings', (_req, res) => {
     res.json({
+      ...DEFAULT_ALERT_SETTINGS,
       ...store.getSetting('alerts.settings', DEFAULT_ALERT_SETTINGS),
       ntfy: notify ? { configured: true, url: config.ntfy.url, topic: config.ntfy.topic } : { configured: false },
     });
   });
 
   api.put('/alerts/settings', (req, res) => {
-    const current = store.getSetting('alerts.settings', DEFAULT_ALERT_SETTINGS);
+    const current = { ...DEFAULT_ALERT_SETTINGS, ...store.getSetting('alerts.settings', {}) };
     const next = cleanAlertSettings(req.body, current);
     store.setSetting('alerts.settings', next);
     res.json(next);
@@ -268,6 +270,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
       devices: (d) => send('devices', d),
       status: (d) => send('status', d),
       traffic: (d) => send('traffic', d),
+      scan: (d) => send('scan', d),
     };
     Object.entries(handlers).forEach(([k, h]) => collector.on(k, h));
     const ping = setInterval(() => res.write(': ping\n\n'), 25000);
@@ -278,6 +281,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   });
 
   api.use(boxRouter({ freebox, store, collector }));
+  api.use(scanRouter({ store, scans: collector.scans }));
 
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);

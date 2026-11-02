@@ -3,11 +3,12 @@ import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
 import { toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
 import { deviceTraffic } from './freebox/traffic.js';
+import { PortScans } from './scan/scans.js';
 
 const now = () => Math.floor(Date.now() / 1000);
 
 export class Collector extends EventEmitter {
-  constructor({ freebox, store, config, notify = null, log = console }) {
+  constructor({ freebox, store, config, notify = null, log = console, scanner }) {
     super();
     this.freebox = freebox;
     this.store = store;
@@ -26,6 +27,9 @@ export class Collector extends EventEmitter {
     // Trafic par appareil (stations Wi-Fi + prises Ethernet) et état du module fibre
     this.traffic = null;
     this.ftth = null;
+    // Scans de ports (à la demande et chaque nuit sur les appareils surveillés)
+    this.scans = new PortScans({ store, alert: (a) => this.alert(a), log, ...(scanner ? { scanner } : {}) });
+    this.scans.on('progress', (p) => this.emit('scan', p));
   }
 
   start() {
@@ -40,11 +44,25 @@ export class Collector extends EventEmitter {
     every('system', intervals.system, () => this.pollSystem());
     every('traffic', intervals.traffic, () => this.pollTraffic());
     this.timers.push(setInterval(() => this.guard('rollup', () => this.store.rollup(this.config.retention)), intervals.rollup * 1000));
+    this.timers.push(setInterval(() => this.nightlyScanDue(), 60 * 1000));
   }
 
   stop() {
     this.timers.forEach(clearInterval);
     this.timers = [];
+    this.scans.stopAll();
+  }
+
+  /** Scan de ports de nuit : une fois par jour, à l'heure réglée (fuseau TZ du conteneur). */
+  async nightlyScanDue(date = new Date()) {
+    const settings = { ...DEFAULT_ALERT_SETTINGS, ...this.store.getSetting('alerts.settings', {}) };
+    if (!settings.nightlyScan || date.getHours() !== settings.nightlyScanHour) return false;
+    const day = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    if (this.store.getSetting('scan.nightlyDay') === day) return false;
+    this.store.setSetting('scan.nightlyDay', day);
+    const count = await this.scans.nightly();
+    this.log.info(`Scan de ports de nuit : ${count} appareil(s) surveillé(s) en ligne`);
+    return true;
   }
 
   /** Une seule exécution à la fois par tâche ; rien tant que le serveur n'est pas associé. */
