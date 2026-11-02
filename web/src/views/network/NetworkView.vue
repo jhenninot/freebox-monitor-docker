@@ -2,6 +2,8 @@
 // Sommaire des réglages réseau de la box. Les écrans arrivent au fur et à mesure des lots.
 const SECTIONS = [
   { to: '/reseau/ip-fixes', title: 'IP fixes', text: 'Baux DHCP statiques, adresses à fixer, rappel des appareils surveillés' },
+  { to: '/reseau/redirections', title: 'Redirections de ports', text: 'Ports ouverts depuis Internet vers un appareil, conflits, état de la DMZ' },
+  { to: '/reseau/filtrage-wifi', title: 'Filtrage Wi-Fi', text: 'Listes blanche et noire des adresses MAC autorisées sur le Wi-Fi' },
 ];
 </script>
 

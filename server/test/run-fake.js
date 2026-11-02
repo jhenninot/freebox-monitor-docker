@@ -20,6 +20,11 @@ box.state.system.sensors.push({ id: 'temp_hdd', name: 'Disque', value: 87 });
 box.state.switchStatus = [{ id: 1, link: 'up', mac_list: [{ mac: 'AA:00:00:00:00:01' }] }, { id: 2, link: 'up', mac_list: [{ mac: 'AA:00:00:00:00:02' }, { mac: 'AA:00:00:00:00:09', hostname: 'tv' }] }];
 box.state.portStats = { 1: { tx_bytes: 9e10, rx_good_bytes: 2e10 }, 2: { tx_bytes: 3e9, rx_good_bytes: 1e9 } };
 box.state.stations[1] = [{ mac: 'AA:00:00:00:00:03', hostname: 'iPhone', tx_bytes: 4e8, rx_bytes: 5e7 }];
+box.state.redirs = [
+  { id: 100, enabled: true, ip_proto: 'tcp', wan_port_start: 443, wan_port_end: 443, lan_ip: '192.168.1.20', lan_port: 443, src_ip: '0.0.0.0', comment: 'Nginx Proxy Manager', hostname: 'proxmox' },
+  { id: 101, enabled: false, ip_proto: 'udp', wan_port_start: 51820, wan_port_end: 51820, lan_ip: '192.168.1.30', lan_port: 51820, src_ip: '0.0.0.0', comment: 'WireGuard', hostname: '' },
+];
+box.state.macFilters = [{ id: 'AA:00:00:00:00:04-blacklist', mac: 'AA:00:00:00:00:04', type: 'blacklist', comment: 'Imprimante', hostname: '' }];
 // Validation automatique de l'association au bout de 4 s, débits qui bougent
 setTimeout(() => { box.state.authStatus = 'granted'; }, 4000);
 setInterval(() => {

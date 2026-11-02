@@ -164,3 +164,12 @@ progress { width: 100%; height: 8px; accent-color: var(--accent); }
 .badge.new { color: var(--bad); border-color: var(--bad); }
 .badge.gone { color: var(--muted); border-color: var(--border); }
 tr.gone td { color: var(--muted); text-decoration: line-through; }
+.port-input { width: 7.5rem; }
+.grow { flex: 1; min-width: 140px; }
+tr.muted td { color: var(--muted); }
+tr.warnings td { border-top: 0; padding-top: 0; }
+tr.warnings p { margin: 0.1rem 0; color: #b7791f; }
+label.switch { display: inline-flex; margin: 0 0.4rem 0 0; font-size: 0.85rem; }
+ul.plain { list-style: none; padding: 0; margin: 0; }
+ul.plain li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-top: 1px solid var(--border); }
+ul.plain li:first-child { border-top: 0; }

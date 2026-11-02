@@ -23,7 +23,11 @@ export function startFakeFreebox(port = 0) {
     stations: { 0: [], 1: [] },
     switchStatus: [],
     portStats: {},
+    redirs: [],
+    incoming: [{ id: 'https', enabled: true, type: 'tcp', in_port: 443 }, { id: 'wireguard', enabled: false, type: 'udp', in_port: 51820 }],
+    dmz: { enabled: false, ip: '' },
   };
+  let nextRedir = 1;
   const ok = (res, result) => res.json({ success: true, result });
   const app = express();
   app.use(express.json());
@@ -86,6 +90,28 @@ export function startFakeFreebox(port = 0) {
     ok(res);
   });
 
+  api.get('/fw/redir/', (_req, res) => ok(res, state.redirs));
+  api.get('/fw/incoming/', (_req, res) => ok(res, state.incoming));
+  api.get('/fw/dmz/', (_req, res) => ok(res, state.dmz));
+  api.post('/fw/redir/', (req, res) => {
+    const rule = { id: nextRedir++, enabled: true, hostname: '', ...req.body };
+    state.redirs.push(rule);
+    ok(res, rule);
+  });
+  api.put('/fw/redir/:id', (req, res) => {
+    const rule = state.redirs.find((r) => r.id === Number(req.params.id));
+    Object.assign(rule, req.body);
+    ok(res, rule);
+  });
+  api.delete('/fw/redir/:id', (req, res) => {
+    state.redirs = state.redirs.filter((r) => r.id !== Number(req.params.id));
+    ok(res);
+  });
+  api.put('/wifi/mac_filter/:id', (req, res) => {
+    const entry = state.macFilters.find((f) => f.id === req.params.id);
+    Object.assign(entry, req.body);
+    ok(res, entry);
+  });
   api.get('/wifi/config/', (_req, res) => ok(res, state.wifiConfig));
   api.put('/wifi/config/', (req, res) => { Object.assign(state.wifiConfig, req.body); ok(res, state.wifiConfig); });
   api.get('/wifi/mac_filter/', (_req, res) => ok(res, state.macFilters));

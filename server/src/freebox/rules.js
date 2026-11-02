@@ -112,3 +112,95 @@ export function missingFromWhitelist(whitelist, needed) {
   const listed = new Set(whitelist.map(normalizeMac));
   return [...new Set(needed.map(normalizeMac))].filter((m) => m && !listed.has(m));
 }
+
+// --- Redirections de ports (traduction de domain/PortRules.kt) ---
+
+export const ANY_SOURCE = '0.0.0.0';
+
+/** Libellés des ports utilisés par les services de la Freebox (GET fw/incoming/). */
+export function incomingPortLabel(id) {
+  return {
+    http: 'Accès distant Freebox OS (HTTP)',
+    https: 'Accès distant Freebox OS (HTTPS)',
+    'bittorrent-main': 'BitTorrent',
+    'bittorrent-dht': 'BitTorrent (DHT)',
+    ftp: 'Serveur FTP',
+    'ftp-passive': 'Serveur FTP (mode passif)',
+    'openvpn-routed': 'OpenVPN (routé)',
+    'openvpn-bridge': 'OpenVPN (bridgé)',
+    'ipsec-ikev2': 'VPN IPsec (IKEv2)',
+    'ipsec-nat': 'VPN IPsec (NAT)',
+    pptp: 'VPN PPTP',
+    wireguard: 'VPN WireGuard',
+  }[id] ?? id;
+}
+
+const portNumber = (v) => {
+  const text = String(v ?? '').trim();
+  return /^\d+$/.test(text) ? Number(text) : null;
+};
+const validPort = (n) => n !== null && n >= 1 && n <= 65535;
+
+/**
+ * Formulaire de redirection (valeurs texte ou nombres) → { error } ou { rule } prête pour la box.
+ * Port de fin et port interne vides = port de début ; IP source vide = toutes.
+ */
+export function parsePortForward(form = {}, { gateway = '', netmask = '' } = {}) {
+  const start = portNumber(form.wanStart);
+  const empty = (v) => String(v ?? '').trim() === '';
+  const end = empty(form.wanEnd) ? start : portNumber(form.wanEnd);
+  const lan = empty(form.lanPort) ? start : portNumber(form.lanPort);
+  const lanIp = String(form.lanIp ?? '').trim();
+  const srcIp = String(form.srcIp ?? '').trim();
+  const proto = form.proto === 'udp' ? 'udp' : 'tcp';
+  let error = null;
+  if (!validPort(start)) error = 'Port externe invalide (1 à 65535)';
+  else if (!validPort(end)) error = 'Port externe de fin invalide';
+  else if (end < start) error = 'Le port de fin doit être supérieur ou égal au port de début';
+  else if (!validPort(lan)) error = 'Port interne invalide';
+  else if (lan + (end - start) > 65535) error = 'La plage de ports internes dépasse 65535';
+  else if (!isValidIp(lanIp)) error = 'Adresse IP de destination invalide';
+  else if (gateway && netmask && !sameSubnet(lanIp, gateway, netmask)) error = 'L\'IP de destination doit être dans le réseau local';
+  else if (srcIp && !isValidIp(srcIp)) error = 'Adresse IP source invalide';
+  if (error) return { error };
+  return {
+    rule: {
+      ip_proto: proto,
+      wan_port_start: start,
+      wan_port_end: end,
+      lan_ip: lanIp,
+      lan_port: lan,
+      src_ip: srcIp || ANY_SOURCE,
+      comment: String(form.comment ?? '').trim(),
+    },
+  };
+}
+
+const overlaps = (aStart, aEnd, bStart, bEnd) => aStart <= bEnd && bStart <= aEnd;
+
+/**
+ * Points d'attention sur une redirection (format de la box) : conflit avec un service de la Freebox ou une autre
+ * redirection, destination sans IP fixe, ports hors de la plage attribuée quand l'IPv4 est partagée.
+ */
+export function portForwardWarnings(rule, others, incoming, staticIps, ipv4PortRange) {
+  const warnings = [];
+  for (const p of incoming) {
+    if (p.enabled && p.type === rule.ip_proto && p.in_port >= rule.wan_port_start && p.in_port <= rule.wan_port_end) {
+      warnings.push(`Le port ${p.in_port} est aussi utilisé par « ${incomingPortLabel(p.id)} » : la redirection est prioritaire.`);
+    }
+  }
+  for (const o of others) {
+    if (o.id === rule.id || !o.enabled || o.ip_proto !== rule.ip_proto) continue;
+    if (overlaps(rule.wan_port_start, rule.wan_port_end, o.wan_port_start, o.wan_port_end)) {
+      warnings.push(`Chevauche la redirection vers ${o.lan_ip}:${o.lan_port} (${o.comment || o.hostname || 'sans nom'}).`);
+    }
+  }
+  if (rule.lan_ip && !staticIps.has(rule.lan_ip)) {
+    warnings.push(`${rule.lan_ip} n'a pas d'IP fixe : la redirection cassera si l'appareil change d'adresse.`);
+  }
+  if (Array.isArray(ipv4PortRange) && ipv4PortRange.length === 2) {
+    const [min, max] = ipv4PortRange;
+    if (rule.wan_port_start < min || rule.wan_port_end > max) warnings.push(`Ton IPv4 est partagée : seuls les ports ${min} à ${max} sont utilisables.`);
+  }
+  return warnings;
+}

@@ -35,6 +35,11 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Réseau**
 - IP fixes : liste, ajout, modification, suppression, « Fixer » une adresse distribuée automatiquement,
   rappel des appareils surveillés sans IP fixe
+- Redirections de ports : liste, ajout (plages, IP source), modification, activation, suppression, avec les
+  avertissements de l'appli Android (port déjà pris par la box ou une autre redirection, destination sans IP fixe,
+  IPv4 partagée) ; état de la DMZ et ports utilisés par les services de la box
+- Filtrage Wi-Fi : mode (désactivé, liste blanche, liste noire), listes, ajout depuis les appareils connus ;
+  avant d'activer la liste blanche, ajout proposé des appareils connectés en Wi-Fi et de celui depuis lequel tu consultes
 
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour
