@@ -80,7 +80,6 @@ async function toggle(device, field) {
           <span class="ip">{{ d.ipv4 ?? '' }}</span>
           <span class="muted small">{{ d.online ? (d.link === 'wifi' ? `Wi-Fi ${d.wifiBand ?? ''}` : d.link === 'ethernet' ? 'Câble' : 'En ligne') : ago(d.lastSeen) }}</span>
         </RouterLink>
-        <button class="ghost small" @click="toggle(d, 'hidden')">Masquer</button>
       </li>
     </ul>
 
