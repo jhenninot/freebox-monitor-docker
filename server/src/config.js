@@ -22,6 +22,9 @@ export function loadConfig(env = process.env) {
     // Derrière Nginx Proxy Manager : on fait confiance à X-Forwarded-For / X-Forwarded-Proto
     trustProxy: env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal',
 
+    // Adresse de ce serveur vue par la Freebox (notifications de la box), ex. http://192.168.1.20:8086
+    publicUrl: (env.PUBLIC_URL || '').trim().replace(/\/+$/, ''),
+
     freeboxUrl: (env.FREEBOX_URL || 'http://mafreebox.freebox.fr').replace(/\/+$/, ''),
 
     // Périodes de collecte, en secondes

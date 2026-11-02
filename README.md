@@ -41,6 +41,9 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 - Serveur VPN : démarrer / arrêter WireGuard, OpenVPN, IPsec, PPTP, port, MTU, chiffrement ; connexions en cours
   (déconnecter) ; accès (création, IP réservée, mot de passe) ; fichier de configuration et QR code WireGuard
 - Client VPN de la box : import d'un fichier .conf WireGuard ou réglages PPTP, activation, état, débit, journal
+- Notifications de la box : le serveur s'inscrit comme destinataire auprès de la Freebox (API 11) ; nouvel appareil,
+  redémarrage, mot de passe changé, appel manqué… arrivent dans le journal et par ntfy. La box appelle
+  `<adresse>/box-notif/<secret>` : une IP locale en http suffit, pas besoin d'exposer le serveur sur Internet
 - Filtrage Wi-Fi : mode (désactivé, liste blanche, liste noire), listes, ajout depuis les appareils connus ;
   avant d'activer la liste blanche, ajout proposé des appareils connectés en Wi-Fi et de celui depuis lequel tu consultes
 
@@ -73,6 +76,7 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
    | `ADMIN_PASSWORD` | le mot de passe de l'interface (8 caractères minimum) |
    | `FREEBOX_URL` | facultatif, `http://mafreebox.freebox.fr` par défaut (ou `http://192.168.1.254`) |
    | `NTFY_URL`, `NTFY_TOPIC` | facultatif, par exemple `https://ntfy.sh` et un sujet difficile à deviner |
+   | `PUBLIC_URL` | facultatif, adresse de ce serveur vue par la box pour ses notifications (ex. `http://192.168.1.20:8086`), modifiable dans l'interface |
    | `NTFY_TOKEN` | facultatif, jeton d'accès si le sujet ntfy est protégé |
 
 4. Démarrer la stack : les logs affichent « Freebox Monitor … prêt sur le port 8080 ».
@@ -149,7 +153,6 @@ web/src/
 
 ## Prochaines étapes
 
-- **Lot 2** : IP fixes, redirections de ports, VPN (repris de l'appli Android), ping et qualité Internet (latence, perte),
-  surveillance des services (Home Assistant, NPM, Mealie, Proxmox), scans de ports planifiés,
-  notifications poussées par la box (`notif/targets`)
+- Fonctions de l'appli Android reprises (lot 2) : fait, sauf l'inscription des téléphones via le relais Firebase
+- À venir : ping et qualité Internet (latence, perte), surveillance des services (Home Assistant, NPM, Mealie, Proxmox)
 - **Lot 3** : test de débit planifié, Wi-Fi par appareil, rapport mensuel, capteurs MQTT pour Home Assistant

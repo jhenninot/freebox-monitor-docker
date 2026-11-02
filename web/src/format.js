@@ -59,6 +59,7 @@ export const EVENT_LABELS = {
   box_hot: 'Surchauffe',
   box_cool: 'Température normale',
   port_opened: 'Port ouvert',
+  box_notif: 'Notification box',
 };
 
 export const HOST_TYPES = {

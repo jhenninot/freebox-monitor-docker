@@ -8,6 +8,7 @@ import EventsView from './views/EventsView.vue';
 import HomeView from './views/HomeView.vue';
 import LoginView from './views/LoginView.vue';
 import PairingView from './views/PairingView.vue';
+import BoxNotifView from './views/network/BoxNotifView.vue';
 import DhcpView from './views/network/DhcpView.vue';
 import PortForwardView from './views/network/PortForwardView.vue';
 import VpnClientView from './views/network/VpnClientView.vue';
@@ -26,6 +27,7 @@ const router = createRouter({
     { path: '/reseau/redirections', component: PortForwardView, meta: { title: 'Redirections de ports' } },
     { path: '/reseau/vpn', component: VpnView, meta: { title: 'Serveur VPN' } },
     { path: '/reseau/client-vpn', component: VpnClientView, meta: { title: 'Client VPN' } },
+    { path: '/reseau/notifications', component: BoxNotifView, meta: { title: 'Notifications de la box' } },
     { path: '/reseau/filtrage-wifi', component: WifiFilterView, meta: { title: 'Filtrage Wi-Fi' } },
     { path: '/journal', component: EventsView, meta: { title: 'Journal et alertes' } },
     { path: '/association', component: PairingView, meta: { title: 'Association' } },

@@ -18,6 +18,8 @@ services:
       NTFY_URL: ${NTFY_URL:-}
       NTFY_TOPIC: ${NTFY_TOPIC:-}
       NTFY_TOKEN: ${NTFY_TOKEN:-}
+      # Facultatif : adresse de ce serveur vue par la box (notifications de la box), réglable aussi dans l'interface
+      PUBLIC_URL: ${PUBLIC_URL:-}
     ports:
       - "8086:8080"
     volumes:

@@ -3,9 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { cleanAlertSettings, DEFAULT_ALERT_SETTINGS } from './alerts.js';
+import { boxNotifReceiver } from './boxnotif.js';
 import { normalizeMac } from './freebox/rules.js';
 import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
+import { boxNotifRouter } from './routes/boxnotif.js';
 import { networkRouter } from './routes/network.js';
 import { scanRouter } from './routes/scan.js';
 import { vpnRouter } from './routes/vpn.js';
@@ -286,9 +288,13 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   api.use(scanRouter({ store, scans: collector.scans }));
   api.use(networkRouter({ freebox, store, collector }));
   api.use(vpnRouter({ freebox }));
+  api.use(boxNotifRouter({ freebox, store, config }));
 
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);
+
+  // Appels de la Freebox pour ses notifications (protégés par le secret de l'adresse, sans session)
+  app.use('/box-notif', boxNotifReceiver({ store, collector, log }));
 
   // --- Interface Vue (application monopage) ---
   const index = path.join(config.webDir, 'index.html');
