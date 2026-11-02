@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
 import { repeaterLinks, toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
-import { deviceTraffic } from './freebox/traffic.js';
+import { deviceTraffic, repeaterStations } from './freebox/traffic.js';
 import { PortScans } from './scan/scans.js';
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -180,6 +180,11 @@ export class Collector extends EventEmitter {
       const stats = await this.freebox.get(`switch/port/${port.id}/stats`).catch(() => null);
       if (stats) ports.push({ port, stats });
     }
+    // Clients Wi-Fi des répéteurs (débit lu chez le répéteur, ou déduit des compteurs d'octets)
+    const repeaterHosts = await this.fetchRepeaterHosts();
+    const { list: viaRepeater, counters } = repeaterStations(repeaterHosts ?? [], this.repeaterCounters, ts);
+    this.repeaterCounters = counters;
+    stations.push(...viaRepeater);
     const items = deviceTraffic(stations, ports, this.store.listDevices());
     this.traffic = { ts, items };
     const values = {};
@@ -226,23 +231,27 @@ export class Collector extends EventEmitter {
    * Corrige la connexion des appareils passés par un répéteur Wi-Fi Freebox (voir repeaterLinks).
    * Les associations sont gardées en base : un appareil hors ligne garde sa dernière connexion connue.
    */
-  async applyRepeaters(devices) {
-    let current = null;
-    if (this.repeatersSupported !== false) {
-      try {
-        const repeaters = await this.freebox.get('repeater/');
-        const list = Array.isArray(repeaters) ? repeaters : [];
-        const withHosts = [];
-        for (const repeater of list) {
-          withHosts.push({ repeater, hosts: await this.freebox.get(`repeater/${repeater.id}/host/`).catch(() => []) });
-        }
-        current = repeaterLinks(withHosts);
-        this.repeatersSupported = true;
-      } catch (e) {
-        // Box sans gestion des répéteurs (ancienne API) : on n'insiste pas
-        if (e.status === 404 || e.code === 'invalid_api_version' || e.code === 'nodev') this.repeatersSupported = false;
+  /** Répéteurs Wi-Fi et leurs clients ; null si la box ne les gère pas ou ne répond pas. */
+  async fetchRepeaterHosts() {
+    if (this.repeatersSupported === false) return null;
+    try {
+      const repeaters = await this.freebox.get('repeater/');
+      const withHosts = [];
+      for (const repeater of Array.isArray(repeaters) ? repeaters : []) {
+        withHosts.push({ repeater, hosts: await this.freebox.get(`repeater/${repeater.id}/host/`).catch(() => []) });
       }
+      this.repeatersSupported = true;
+      return withHosts;
+    } catch (e) {
+      // Box sans gestion des répéteurs (ancienne API) : on n'insiste pas
+      if (e.status === 404 || e.code === 'invalid_api_version' || e.code === 'nodev') this.repeatersSupported = false;
+      return null;
     }
+  }
+
+  async applyRepeaters(devices) {
+    const withHosts = await this.fetchRepeaterHosts();
+    const current = withHosts ? repeaterLinks(withHosts) : null;
     const known = { ...this.store.getSetting('repeater.links', {}), ...(current ?? {}) };
     if (current) this.store.setSetting('repeater.links', known);
     for (const d of devices) {

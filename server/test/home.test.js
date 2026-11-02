@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { toFtth } from '../src/freebox/mappers.js';
-import { deviceTraffic, rankTraffic } from '../src/freebox/traffic.js';
+import { deviceTraffic, rankTraffic, repeaterStations } from '../src/freebox/traffic.js';
 import { host } from './fake-freebox.js';
 import { startHarness } from './harness.js';
 
@@ -114,5 +114,37 @@ test('répéteur relié en CPL : ses clients Wi-Fi ne sont pas vus en câble', a
     assert.equal(list.find((d) => d.name === 'tablette').link, 'wifi');
   } finally {
     h2.close();
+  }
+});
+
+test('trafic : clients Wi-Fi des répéteurs', async () => {
+  const rep = [{ repeater: { id: 1, name: 'Répéteur salon' }, hosts: [
+    { l2ident: { id: 'aa:00:00:00:00:0a' }, primary_name: 'tablette', active: true, access_point: { connectivity_type: 'wifi', tx_rate: 300, rx_rate: 30, tx_bytes: 9000, rx_bytes: 900 } },
+    { l2ident: { id: 'aa:00:00:00:00:0b' }, active: true, access_point: { connectivity_type: 'wifi', tx_bytes: 1000, rx_bytes: 100 } },
+    { l2ident: { id: 'aa:00:00:00:00:0c' }, active: true, access_point: { connectivity_type: 'ethernet' } },
+  ] }];
+  let r = repeaterStations(rep, {}, 100);
+  assert.deepEqual(r.list.map((s) => [s.mac, s.tx_rate, s.rx_rate]), [['AA:00:00:00:00:0A', 300, 30], ['AA:00:00:00:00:0B', 0, 0]]);
+  // Sans débit fourni : déduit des octets entre deux relevés
+  rep[0].hosts[1].access_point = { connectivity_type: 'wifi', tx_bytes: 4000, rx_bytes: 400 };
+  r = repeaterStations(rep, r.counters, 110);
+  assert.deepEqual([r.list[1].tx_rate, r.list[1].rx_rate], [300, 30]);
+
+  const items = deviceTraffic(r.list, [], [{ key: 'k', name: 'Tablette', mac: 'AA:00:00:00:00:0A' }]);
+  assert.equal(items[0].detail, 'Wi-Fi · via Répéteur salon');
+  assert.equal(items[0].deviceKey, 'k');
+
+  // Vu aussi par la box : la mesure de la box l'emporte
+  const both = deviceTraffic([{ mac: 'AA:00:00:00:00:0A', tx_rate: 5 }, ...r.list], [], []);
+  assert.equal(both.find((t) => t.id === 'wifi:AA:00:00:00:00:0A').downRate, 5);
+
+  const h = await startHarness();
+  try {
+    h.box.state.repeaters = [{ id: 1, name: 'Répéteur salon' }];
+    h.box.state.repeaterHosts[1] = rep[0].hosts;
+    await h.collector.pollTraffic();
+    assert.ok(h.collector.traffic.items.some((t) => t.detail === 'Wi-Fi · via Répéteur salon'));
+  } finally {
+    await h.close();
   }
 });
