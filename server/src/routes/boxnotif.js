@@ -15,13 +15,23 @@ export function boxNotifRouter({ freebox, store, config }) {
   };
   const apiUrlOf = (base) => `${normalizeBaseUrl(base)}/box-notif/${notifIdentity(store).secret}`;
 
+  // La box peut renvoyer notre cible sous un autre id que celui donné à l'inscription :
+  // on la reconnaît aussi au secret dans son adresse et à l'id qu'elle a donné en appelant /register
+  const listTargets = async () => {
+    const targets = await freebox.get('notif/targets/');
+    return (Array.isArray(targets) ? targets : []).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i);
+  };
+  const isMine = (t) => {
+    const { targetId, secret } = notifIdentity(store);
+    const registration = store.getSetting('boxnotif.registration');
+    return t.id === targetId || (registration?.deviceId && t.id === registration.deviceId) || String(t.api_url ?? '').includes(`/box-notif/${secret}`);
+  };
+
   router.get('/box-notif', async (_req, res) => {
     const subjects = BOX_SUBSCRIPTIONS.map(([id, label]) => ({ id, label }));
     if (!supported()) return res.json({ supported: false, subjects });
-    const { targetId } = notifIdentity(store);
-    const targets = await freebox.get('notif/targets/');
-    const list = (Array.isArray(targets) ? targets : []).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i);
-    const mine = list.find((t) => t.id === targetId) ?? null;
+    const list = await listTargets();
+    const mine = list.find(isMine) ?? null;
     const baseUrl = store.getSetting('boxnotif.baseUrl') || config.publicUrl || '';
     res.json({
       supported: true,
@@ -31,9 +41,10 @@ export function boxNotifRouter({ freebox, store, config }) {
       // Confirmé quand la box a bien appelé ce serveur (POST /register)
       confirmed: Boolean(mine && store.getSetting('boxnotif.registration')),
       subscriptions: mine?.subscriptions ?? DEFAULT_BOX_SUBSCRIPTIONS,
+      targetId: mine?.id ?? null,
       lastCall: store.getSetting('boxnotif.lastCall'),
       targets: list.map((t) => ({
-        id: t.id, name: t.name, type: t.type, subscriptions: t.subscriptions ?? [], lastUse: t.last_use ?? 0, mine: t.id === targetId,
+        id: t.id, name: t.name, type: t.type, subscriptions: t.subscriptions ?? [], lastUse: t.last_use ?? 0, mine: isMine(t),
         // Adresse masquée : elle contient le secret du relais
         host: String(t.api_url ?? '').replace(/^(https?:\/\/[^/]+).*$/, '$1'),
       })),
@@ -53,20 +64,23 @@ export function boxNotifRouter({ freebox, store, config }) {
     const body = {
       id: targetId, name: 'Freebox Monitor (serveur)', type: 'android', token, subscriptions: subs, api_url: apiUrlOf(baseUrl), message_type: 'notification',
     };
-    const targets = await freebox.get('notif/targets/');
-    const exists = (Array.isArray(targets) ? targets : []).some((t) => t.id === targetId);
-    if (exists) await freebox.put(`notif/targets/${enc(targetId)}`, body);
+    const existing = (await listTargets()).find(isMine);
+    if (existing) await freebox.put(`notif/targets/${enc(existing.id)}`, { ...body, id: existing.id });
     else {
       store.setSetting('boxnotif.registration', null);
       await freebox.post('notif/targets/', body);
     }
     store.setSetting('boxnotif.baseUrl', normalizeBaseUrl(baseUrl));
-    res.json({ ok: true });
+    // Sujets demandés que la box n'a pas gardés (fonction absente sur ce modèle, par exemple)
+    const saved = (await listTargets()).find(isMine);
+    const dropped = saved ? subs.filter((x) => !(saved.subscriptions ?? []).includes(x)) : [];
+    res.json({ ok: true, dropped });
   });
 
   router.delete('/box-notif', async (_req, res) => {
     requireSupported();
-    await freebox.del(`notif/targets/${enc(notifIdentity(store).targetId)}`).catch((e) => { if (e.status !== 404) throw e; });
+    const existing = (await listTargets()).find(isMine);
+    if (existing) await freebox.del(`notif/targets/${enc(existing.id)}`);
     store.setSetting('boxnotif.registration', null);
     res.json({ ok: true });
   });

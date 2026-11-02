@@ -167,11 +167,15 @@ export function startFakeFreebox(port = 0) {
   api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, ...t }) => t)));
   api.post('/notif/targets/', (req, res) => {
     if (!req.body.id) return res.status(400).json({ success: false, error_code: 'invalid_request', msg: 'invalid id' });
-    state.notifTargets.push(req.body);
+    if (state.notifTargets.some((t) => t.api_url === req.body.api_url)) return res.status(400).json({ success: false, error_code: 'exists', msg: 'Erreur de notification' });
+    // Comme certaines box : id réécrit, sujets inconnus du modèle ignorés
+    const subscriptions = req.body.subscriptions.filter((x) => !state.notifUnsupported?.includes(x));
+    state.notifTargets.push({ ...req.body, subscriptions, id: state.notifRewriteId ? `box-${req.body.id}` : req.body.id });
     ok(res);
   });
   api.put('/notif/targets/:id', (req, res) => {
-    Object.assign(state.notifTargets.find((t) => t.id === req.params.id), req.body);
+    const subscriptions = req.body.subscriptions.filter((x) => !state.notifUnsupported?.includes(x));
+    Object.assign(state.notifTargets.find((t) => t.id === req.params.id), { ...req.body, subscriptions, id: req.params.id });
     ok(res);
   });
   api.delete('/notif/targets/:id', (req, res) => { state.notifTargets = state.notifTargets.filter((t) => t.id !== req.params.id); ok(res); });

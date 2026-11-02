@@ -62,3 +62,27 @@ test('inscription du serveur auprès de la box, puis notification reçue', async
   await h.call('DELETE', '/api/box-notif/targets/phone-1');
   assert.equal(h.box.state.notifTargets.length, 0);
 });
+
+test('la box réécrit l\'id de la cible et ignore un sujet : toujours reconnue comme la nôtre', async () => {
+  const h2 = await startHarness();
+  try {
+    h2.box.state.notifTargets = [];
+    h2.box.state.notifRewriteId = true;
+    h2.box.state.notifUnsupported = ['download'];
+    let r = await h2.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.94:8086', subscriptions: ['lan_host', 'download'] });
+    assert.deepEqual(r.body.dropped, ['download']);
+    r = await h2.call('GET', '/api/box-notif');
+    assert.equal(r.body.registered, true);
+    assert.equal(r.body.targets[0].mine, true);
+    assert.deepEqual(r.body.subscriptions, ['lan_host']);
+    // Deuxième clic : mise à jour (PUT), pas de nouvelle inscription refusée par la box
+    r = await h2.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.94:8086', subscriptions: ['lan_host', 'phone'] });
+    assert.equal(r.status, 200);
+    assert.equal(h2.box.state.notifTargets.length, 1);
+    assert.deepEqual(h2.box.state.notifTargets[0].subscriptions, ['lan_host', 'phone']);
+    await h2.call('DELETE', '/api/box-notif');
+    assert.equal(h2.box.state.notifTargets.length, 0);
+  } finally {
+    h2.close();
+  }
+});

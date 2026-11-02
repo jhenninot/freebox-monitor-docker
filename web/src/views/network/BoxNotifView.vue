@@ -38,8 +38,16 @@ async function act(fn, done) {
   }
 }
 
-const save = () => act(() => api('/box-notif', { method: 'PUT', body: { baseUrl: baseUrl.value, subscriptions: subscriptions.value } }),
-  data.value.registered ? 'Inscription mise à jour' : 'Serveur inscrit : la box va confirmer en appelant son adresse');
+async function save() {
+  const wasRegistered = data.value.registered;
+  let dropped = [];
+  await act(async () => {
+    ({ dropped } = await api('/box-notif', { method: 'PUT', body: { baseUrl: baseUrl.value, subscriptions: subscriptions.value } }));
+  }, wasRegistered ? 'Inscription mise à jour' : 'Serveur inscrit : la box va confirmer en appelant son adresse');
+  if (dropped?.length && !error.value) {
+    message.value += `. La box n'a pas retenu : ${dropped.map(label).join(', ')} (fonction absente ou désactivée sur ta Freebox).`;
+  }
+}
 
 function unregister() {
   if (!window.confirm('Ne plus recevoir les notifications de la box sur ce serveur ?')) return;
