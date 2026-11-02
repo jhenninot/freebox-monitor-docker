@@ -214,7 +214,7 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
           <dt>IPv4</dt><dd>{{ device.ipv4 ?? '—' }}</dd>
           <dt>MAC</dt><dd>{{ device.mac ?? '—' }}</dd>
           <dt>Fabricant</dt><dd>{{ device.vendor ?? '—' }}</dd>
-          <dt>Connexion</dt><dd>{{ device.link === 'wifi' ? `Wi-Fi ${device.wifiBand ?? ''}` : device.link === 'ethernet' ? 'Câble' : '—' }}</dd>
+          <dt>Connexion</dt><dd>{{ device.link === 'wifi' ? `Wi-Fi ${device.wifiBand ?? ''}` : device.link === 'ethernet' ? 'Câble' : '—' }}<template v-if="device.box.repeater"> · via {{ device.box.repeater }}</template></dd>
           <dt>Vu la 1re fois</dt><dd>{{ date(device.firstSeen) }}</dd>
         </dl>
         <label class="check"><input type="checkbox" :checked="device.watched" @change="setFlag('watched', $event.target.checked)"> Surveiller (alerte s'il passe hors ligne)</label>

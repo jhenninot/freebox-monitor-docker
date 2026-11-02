@@ -198,6 +198,8 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       events: store.listEvents({ deviceKey: device.key, limit: 50 }),
       box: {
         persistent: Boolean(raw.persistent),
+        // Répéteur Wi-Fi Freebox par lequel passe l'appareil
+        repeater: raw._repeater ?? null,
         // Nom DNS local (API 16) : null si la box ne le gère pas
         localDomain: raw.local_domain || null,
         domainName: raw.local_domain ? (raw.domain_name ?? '') : null,

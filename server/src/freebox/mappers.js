@@ -81,3 +81,27 @@ export function toFtth(f = {}) {
     txPower: f.sfp_has_power_report ? dbm(f.sfp_pwr_tx) : null,
   };
 }
+
+/**
+ * Appareils connectés à un répéteur Wi-Fi Freebox (GET repeater/{id}/host/). Quand le répéteur est relié à la box
+ * par câble ou CPL, lan/browser montre ces appareils « en Ethernet » derrière la prise : c'est la liste du répéteur
+ * qui dit qu'ils sont en Wi-Fi. Renvoie { MAC: { link, wifiBand, repeater } }.
+ */
+export function repeaterLinks(repeaters) {
+  const links = {};
+  for (const { repeater, hosts } of repeaters) {
+    for (const host of Array.isArray(hosts) ? hosts : []) {
+      const mac = host.l2ident?.type === 'mac_address' ? host.l2ident.id : host.l2ident?.id;
+      if (!mac) continue;
+      const type = host.access_point?.connectivity_type;
+      const band = host.access_point?.wifi_information?.band;
+      links[String(mac).toUpperCase()] = {
+        // Un répéteur a aussi des prises Ethernet : on ne suppose le Wi-Fi que si la box ne dit pas le contraire
+        link: type === 'ethernet' ? 'ethernet' : 'wifi',
+        wifiBand: band ? (WIFI_BANDS[band] ?? band) : null,
+        repeater: repeater.name || repeater.model || `Répéteur ${repeater.id}`,
+      };
+    }
+  }
+  return links;
+}

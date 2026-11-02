@@ -89,3 +89,30 @@ test('signal fibre et alerte température', async () => {
   await h.collector.pollSystem();
   assert.equal(h.collector.system.ftth, null);
 });
+
+test('répéteur relié en CPL : ses clients Wi-Fi ne sont pas vus en câble', async () => {
+  const h2 = await startHarness();
+  try {
+    const behind = (id, mac, name) => ({ ...host(id, mac, name), access_point: { connectivity_type: 'ethernet', type: 'gateway' } });
+    h2.box.state.hosts = [behind('ether-a', 'AA:00:00:00:00:0A', 'tablette'), behind('ether-b', 'AA:00:00:00:00:0B', 'pc bureau')];
+    h2.box.state.repeaters = [{ id: 1, name: 'Répéteur salon' }];
+    h2.box.state.repeaterHosts[1] = [
+      { l2ident: { id: 'aa:00:00:00:00:0a', type: 'mac_address' }, access_point: { connectivity_type: 'wifi', wifi_information: { band: '5g' } } },
+    ];
+    await h2.collector.pollDevices();
+    let list = (await h2.call('GET', '/api/devices')).body;
+    const byName = Object.fromEntries(list.map((d) => [d.name, [d.link, d.wifiBand]]));
+    assert.deepEqual(byName, { tablette: ['wifi', '5 GHz'], 'pc bureau': ['ethernet', null] });
+    const detail = (await h2.call('GET', `/api/devices/${encodeURIComponent('AA:00:00:00:00:0A')}`)).body;
+    assert.equal(detail.box.repeater, 'Répéteur salon');
+
+    // Hors ligne et plus listée par le répéteur : garde sa dernière connexion connue
+    h2.box.state.hosts[0].reachable = false;
+    h2.box.state.repeaterHosts[1] = [];
+    await h2.collector.pollDevices();
+    list = (await h2.call('GET', '/api/devices')).body;
+    assert.equal(list.find((d) => d.name === 'tablette').link, 'wifi');
+  } finally {
+    h2.close();
+  }
+});

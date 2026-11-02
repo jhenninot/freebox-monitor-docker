@@ -1,7 +1,7 @@
 // Collecte périodique : interroge la Freebox, enregistre l'historique et déclenche les alertes.
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
-import { toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
+import { repeaterLinks, toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
 import { deviceTraffic } from './freebox/traffic.js';
 import { PortScans } from './scan/scans.js';
 
@@ -196,6 +196,7 @@ export class Collector extends EventEmitter {
     const ts = now();
     const hosts = await this.freebox.get('lan/browser/pub/');
     const devices = (Array.isArray(hosts) ? hosts : []).map(toDevice);
+    await this.applyRepeaters(devices);
     const { cameOnline, wentOffline } = this.store.saveDevices(devices, ts);
     await this.refreshStaticLeases();
     this.store.addMetrics({ 'devices.online': devices.filter((d) => d.online).length }, ts);
@@ -218,6 +219,40 @@ export class Collector extends EventEmitter {
     }
     if (cameOnline.length || wentOffline.length || outcome.newDevices.length) {
       this.emit('devices', { cameOnline, wentOffline });
+    }
+  }
+
+  /**
+   * Corrige la connexion des appareils passés par un répéteur Wi-Fi Freebox (voir repeaterLinks).
+   * Les associations sont gardées en base : un appareil hors ligne garde sa dernière connexion connue.
+   */
+  async applyRepeaters(devices) {
+    let current = null;
+    if (this.repeatersSupported !== false) {
+      try {
+        const repeaters = await this.freebox.get('repeater/');
+        const list = Array.isArray(repeaters) ? repeaters : [];
+        const withHosts = [];
+        for (const repeater of list) {
+          withHosts.push({ repeater, hosts: await this.freebox.get(`repeater/${repeater.id}/host/`).catch(() => []) });
+        }
+        current = repeaterLinks(withHosts);
+        this.repeatersSupported = true;
+      } catch (e) {
+        // Box sans gestion des répéteurs (ancienne API) : on n'insiste pas
+        if (e.status === 404 || e.code === 'invalid_api_version' || e.code === 'nodev') this.repeatersSupported = false;
+      }
+    }
+    const known = { ...this.store.getSetting('repeater.links', {}), ...(current ?? {}) };
+    if (current) this.store.setSetting('repeater.links', known);
+    for (const d of devices) {
+      const mac = d.mac?.toUpperCase();
+      // En ligne : seule la liste actuelle du répéteur compte ; hors ligne : la dernière connue
+      const via = mac && (current ? (d.online ? current[mac] : known[mac]) : known[mac]);
+      if (!via) continue;
+      d.link = via.link;
+      if (via.wifiBand) d.wifiBand = via.wifiBand;
+      d.raw = { ...d.raw, _repeater: via.repeater };
     }
   }
 

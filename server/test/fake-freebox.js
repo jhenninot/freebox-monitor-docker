@@ -34,6 +34,8 @@ export function startFakeFreebox(port = 0) {
     vpnConnections: [{ id: 'c1', vpn: 'wireguard', user: 'julien', authenticated: true, auth_time: 1700000000, src_ip: '80.1.2.3', src_port: 40000, local_ip: '192.168.27.65', rx_bytes: 1e6, tx_bytes: 5e6 }],
     vpnUsers: [{ login: 'julien', type: 'wireguard', password_set: false, ip_reservation: '192.168.27.65', conf_wireguard: { keepalive: 25, psk: true } }],
     vpnClientConfigs: [],
+    repeaters: [],
+    repeaterHosts: {},
     notifTargets: [{ id: 'phone-1', name: 'Pixel 8', type: 'android', subscriptions: ['lan_host'], api_url: 'https://relais.exemple.fr/secret', message_type: 'notification', last_use: 1700000000 }],
     vpnClientStatus: { enabled: false, state: 'down', last_error: 'none' },
   };
@@ -164,6 +166,8 @@ export function startFakeFreebox(port = 0) {
   api.delete('/vpn_client/config/:id', (req, res) => { state.vpnClientConfigs = state.vpnClientConfigs.filter((x) => x.id !== req.params.id); ok(res); });
   api.get('/vpn_client/status', (_req, res) => ok(res, state.vpnClientStatus));
   api.get('/vpn_client/log', (_req, res) => ok(res, '12:00 connexion\n12:01 refusé'));
+  api.get('/repeater/', (_req, res) => ok(res, state.repeaters));
+  api.get('/repeater/:id/host/', (req, res) => ok(res, state.repeaterHosts[req.params.id] ?? []));
   api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, ...t }) => t)));
   api.post('/notif/targets/', (req, res) => {
     if (!req.body.id) return res.status(400).json({ success: false, error_code: 'invalid_request', msg: 'invalid id' });
