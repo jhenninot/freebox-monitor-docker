@@ -4,6 +4,7 @@ import path from 'node:path';
 import express from 'express';
 import { cleanAlertSettings, DEFAULT_ALERT_SETTINGS } from './alerts.js';
 import { normalizeMac } from './freebox/rules.js';
+import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
 import { passwordMatches } from './security.js';
 
@@ -152,7 +153,15 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
       devices: { total: devices.length, online: devices.filter((d) => d.online).length },
       events: store.listEvents({ limit: 10 }),
       collector: collector.status(),
+      tempAlertCelsius: config.tempAlertCelsius,
     });
+  });
+
+  // Trafic par appareil, du plus gros consommateur au plus petit (sort = rate ou volume)
+  api.get('/traffic', (req, res) => {
+    const sort = req.query.sort === 'volume' ? 'volume' : 'rate';
+    const t = collector.traffic;
+    res.json({ ts: t?.ts ?? null, sort, items: t ? rankTraffic(t.items, sort) : [] });
   });
 
   api.get('/metrics', (req, res) => {
@@ -191,6 +200,8 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
         info: infoSections(raw.info),
       },
       lease: lease ? { id: lease.id, ip: lease.ip, comment: lease.comment ?? '' } : null,
+      // Débit et volume actuels si l'appareil est une station Wi-Fi ou seul sur sa prise
+      traffic: collector.traffic?.items.find((t) => t.deviceKey === device.key) ?? null,
     });
   });
 
@@ -256,6 +267,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
       event: (d) => send('event', d),
       devices: (d) => send('devices', d),
       status: (d) => send('status', d),
+      traffic: (d) => send('traffic', d),
     };
     Object.entries(handlers).forEach(([k, h]) => collector.on(k, h));
     const ping = setInterval(() => res.write(': ping\n\n'), 25000);

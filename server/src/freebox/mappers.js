@@ -69,3 +69,15 @@ export function toSystem(s) {
     fans: values(s.fans),
   };
 }
+
+/** GET connection/ftth/ : puissances optiques reçues en 1/100 dBm. */
+export function toFtth(f = {}) {
+  const dbm = (v) => (Number.isFinite(Number(v)) ? Math.round(Number(v)) / 100 : null);
+  return {
+    sfpPresent: Boolean(f.sfp_present),
+    signal: Boolean(f.sfp_has_signal && f.link),
+    powerReport: Boolean(f.sfp_has_power_report),
+    rxPower: f.sfp_has_power_report ? dbm(f.sfp_pwr_rx) : null,
+    txPower: f.sfp_has_power_report ? dbm(f.sfp_pwr_tx) : null,
+  };
+}

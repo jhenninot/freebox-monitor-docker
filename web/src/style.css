@@ -113,7 +113,8 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
 .events li:first-child { border-top: 0; }
 .tag { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); justify-self: start; }
 .tag.new_device, .tag.device_down, .tag.wan_down { border-color: var(--bad); color: var(--bad); }
-.tag.device_back, .tag.wan_up { border-color: var(--ok); color: var(--ok); }
+.tag.box_hot { border-color: var(--bad); color: var(--bad); }
+.tag.device_back, .tag.wan_up, .tag.box_cool { border-color: var(--ok); color: var(--ok); }
 
 .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .toolbar input { flex: 1; min-width: 200px; }
@@ -154,3 +155,7 @@ summary { cursor: pointer; color: var(--muted); }
 .banner { background: var(--bg); border: 1px solid var(--border); border-left: 3px solid #e8b10e; border-radius: 8px; padding: 0.6rem 0.8rem; margin-bottom: 1rem; }
 td.actions { text-align: right; white-space: nowrap; }
 td input { width: 100%; }
+table.traffic td.down, table.traffic td.up { font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.traffic td.down { color: var(--down); }
+table.traffic td.up { color: var(--up); }
+p.pill { display: inline-block; margin: 0 0 0.75rem; }

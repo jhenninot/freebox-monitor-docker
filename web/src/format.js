@@ -56,6 +56,8 @@ export const EVENT_LABELS = {
   wan_up: 'Internet rétabli',
   ip_change: 'Changement d\'IP',
   box_reboot: 'Redémarrage',
+  box_hot: 'Surchauffe',
+  box_cool: 'Température normale',
 };
 
 export const HOST_TYPES = {

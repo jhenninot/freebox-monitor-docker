@@ -29,6 +29,7 @@ export function loadConfig(env = process.env) {
       connection: int(env.POLL_CONNECTION_SECONDS, 10),
       devices: int(env.POLL_DEVICES_SECONDS, 30),
       system: int(env.POLL_SYSTEM_SECONDS, 60),
+      traffic: int(env.POLL_TRAFFIC_SECONDS, 30),
       rollup: 60,
     },
     // Durée de conservation, en jours (les moyennes horaires sont gardées sans limite)
@@ -37,6 +38,9 @@ export function loadConfig(env = process.env) {
       minuteDays: int(env.RETENTION_MINUTE_DAYS, 90),
       eventDays: int(env.RETENTION_EVENT_DAYS, 365),
     },
+
+    // Seuil de l'alerte « température élevée » (capteur le plus chaud de la box)
+    tempAlertCelsius: int(env.TEMP_ALERT_CELSIUS, 85),
 
     // Alertes envoyées par ntfy (https://ntfy.sh ou une instance auto-hébergée)
     ntfy: {

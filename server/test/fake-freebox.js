@@ -18,6 +18,11 @@ export function startFakeFreebox(port = 0) {
     dynamicLeases: [],
     wifiConfig: { enabled: true, mac_filter_state: 'disabled' },
     macFilters: [],
+    ftth: { link: true, sfp_present: true, sfp_has_signal: true, sfp_has_power_report: true, sfp_pwr_rx: -1850, sfp_pwr_tx: 420 },
+    aps: [{ id: 0 }, { id: 1 }],
+    stations: { 0: [], 1: [] },
+    switchStatus: [],
+    portStats: {},
   };
   const ok = (res, result) => res.json({ success: true, result });
   const app = express();
@@ -42,6 +47,11 @@ export function startFakeFreebox(port = 0) {
   });
   api.get('/connection/', (_req, res) => ok(res, state.connection));
   api.get('/system/', (_req, res) => ok(res, state.system));
+  api.get('/connection/ftth/', (_req, res) => ok(res, state.ftth));
+  api.get('/wifi/ap/', (_req, res) => ok(res, state.aps));
+  api.get('/wifi/ap/:id/stations/', (req, res) => ok(res, state.stations[req.params.id] ?? []));
+  api.get('/switch/status/', (_req, res) => ok(res, state.switchStatus));
+  api.get('/switch/port/:id/stats', (req, res) => ok(res, state.portStats[req.params.id] ?? {}));
   api.get('/lan/browser/pub/', (_req, res) => ok(res, state.hosts));
   api.put('/lan/browser/pub/:id/', (req, res) => {
     state.renamed.push(req.body);

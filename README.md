@@ -9,17 +9,22 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
                                    └── volume Docker : base + sauvegardes
 ```
 
-## Fonctionnalités (lot 1)
+## Fonctionnalités
 
 **Accueil**
-- Connexion Internet : état, type (fibre, ADSL, 4G), débits en direct et maximum, IP publiques, volumes échangés
+- Connexion Internet : état, type (fibre, ADSL, 4G), débits en direct et maximum, IP publiques, volumes échangés,
+  signal fibre et puissances optiques reçue / émise (en dBm, historisées)
 - Freebox Server : modèle, firmware, durée depuis le démarrage, températures, ventilateurs
 - Courbe des débits en direct, sur 1 h, 24 h, 7 j, 30 j ou 1 an (mesurée par le serveur toutes les 10 s, gardée en moyennes)
+- Trafic par appareil, trié par débit actuel ou par volume : stations Wi-Fi et prises Ethernet
+  (plusieurs appareils derrière une même prise ne peuvent pas être départagés)
+- Bandeau « température élevée » à partir de 85 °C
 
 **Appareils**
 - Liste avec recherche (nom, IP, MAC, fabricant), filtres (en ligne, hors ligne, surveillés), tri (nom, IP, activité, fabricant)
 - Étoile pour surveiller un appareil, appareils masqués en bas de liste
-- Fiche : détails, **historique de présence** (arrivées, départs, part du temps en ligne sur 1, 7 ou 30 jours)
+- Fiche : détails, **historique de présence** (arrivées, départs, part du temps en ligne sur 1, 7 ou 30 jours),
+  trafic actuel et courbe sur 1 h, 24 h ou 7 j
 - Dans la box depuis la fiche : renommer, changer le type, nom local (`proxmox.home.arpa`, API 16), fixer l'IP,
   réveil Wake-on-LAN, bloquer / débloquer en Wi-Fi (liste noire du filtrage MAC), oublier l'appareil
 - Infos détectées par la box : autres noms, IPv6, UPnP, mDNS, DHCP
@@ -32,6 +37,7 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour
 - Coupure et retour de la connexion Internet, changement d'IPv4 publique, redémarrage de la box
+- Température élevée dans la box (seuil `TEMP_ALERT_CELSIUS`, 85 °C par défaut), puis retour à la normale 5 °C en dessous
 - Tout est inscrit au journal ; envoi sur le téléphone par [ntfy](https://ntfy.sh) si configuré
 
 **Sécurité**
@@ -88,7 +94,7 @@ Une copie de la base est faite chaque jour dans le volume (`/data/backup/freebox
 | Moyennes à l'heure | sans limite | |
 | Journal | 365 jours | `RETENTION_EVENT_DAYS` |
 
-Fréquences de collecte : `POLL_CONNECTION_SECONDS` (10), `POLL_DEVICES_SECONDS` (30), `POLL_SYSTEM_SECONDS` (60).
+Fréquences de collecte : `POLL_CONNECTION_SECONDS` (10), `POLL_DEVICES_SECONDS` (30), `POLL_SYSTEM_SECONDS` (60), `POLL_TRAFFIC_SECONDS` (30).
 
 ## Développer
 

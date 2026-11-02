@@ -14,10 +14,19 @@ box.state.dynamicLeases = [
   { mac: 'AA:00:00:00:00:01', ip: '192.168.1.20', hostname: 'proxmox', is_static: false, lease_remaining: 40000 },
   { mac: 'AA:00:00:00:00:03', ip: '192.168.1.51', hostname: 'iPhone', is_static: false, lease_remaining: 3000 },
 ];
+box.state.system.sensors.push({ id: 'temp_hdd', name: 'Disque', value: 87 });
+box.state.switchStatus = [{ id: 1, link: 'up', mac_list: [{ mac: 'AA:00:00:00:00:01' }] }, { id: 2, link: 'up', mac_list: [{ mac: 'AA:00:00:00:00:02' }, { mac: 'AA:00:00:00:00:09', hostname: 'tv' }] }];
+box.state.portStats = { 1: { tx_bytes: 9e10, rx_good_bytes: 2e10 }, 2: { tx_bytes: 3e9, rx_good_bytes: 1e9 } };
+box.state.stations[1] = [{ mac: 'AA:00:00:00:00:03', hostname: 'iPhone', tx_bytes: 4e8, rx_bytes: 5e7 }];
 // Validation automatique de l'association au bout de 4 s, débits qui bougent
 setTimeout(() => { box.state.authStatus = 'granted'; }, 4000);
 setInterval(() => {
   box.state.connection.rate_down = Math.round(2e6 + Math.random() * 6e7);
   box.state.connection.rate_up = Math.round(1e5 + Math.random() * 5e6);
+  box.state.portStats[1].tx_bytes_rate = Math.round(Math.random() * 4e6);
+  box.state.portStats[1].rx_bytes_rate = Math.round(Math.random() * 2e5);
+  box.state.portStats[2].tx_bytes_rate = Math.round(Math.random() * 1e5);
+  box.state.stations[1][0].tx_rate = Math.round(Math.random() * 1e6);
+  box.state.stations[1][0].rx_rate = Math.round(Math.random() * 1e5);
 }, 1000);
 console.log(`Fausse Freebox sur ${box.url}`);

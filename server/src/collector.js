@@ -1,7 +1,8 @@
 // Collecte périodique : interroge la Freebox, enregistre l'historique et déclenche les alertes.
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
-import { toConnection, toDevice, toSystem } from './freebox/mappers.js';
+import { toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
+import { deviceTraffic } from './freebox/traffic.js';
 
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -22,6 +23,9 @@ export class Collector extends EventEmitter {
     this.lastSuccess = null;
     // IP fixes (baux DHCP statiques), relues à chaque passage pour marquer les appareils concernés
     this.staticLeases = [];
+    // Trafic par appareil (stations Wi-Fi + prises Ethernet) et état du module fibre
+    this.traffic = null;
+    this.ftth = null;
   }
 
   start() {
@@ -34,6 +38,7 @@ export class Collector extends EventEmitter {
     every('connection', intervals.connection, () => this.pollConnection());
     every('devices', intervals.devices, () => this.pollDevices());
     every('system', intervals.system, () => this.pollSystem());
+    every('traffic', intervals.traffic, () => this.pollTraffic());
     this.timers.push(setInterval(() => this.guard('rollup', () => this.store.rollup(this.config.retention)), intervals.rollup * 1000));
   }
 
@@ -105,7 +110,68 @@ export class Collector extends EventEmitter {
     if (before && s.uptime < before.uptime) {
       await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${s.firmware ? ` (firmware ${s.firmware})` : ''}`, tags: ['arrows_counterclockwise'] });
     }
+    await this.checkTemperature(s.sensors);
+    await this.pollFtth(ts);
+    this.system.ftth = this.ftth;
     this.emit('system', this.system);
+  }
+
+  /** Alerte une fois au-delà du seuil, puis une fois revenu 5 °C en dessous (pas d'alerte en rafale). */
+  async checkTemperature(sensors) {
+    if (!sensors.length) return;
+    const hottest = sensors.reduce((a, b) => (b.value > a.value ? b : a));
+    const threshold = this.config.tempAlertCelsius;
+    const hot = this.store.getSetting('alerts.hot', false);
+    if (!hot && hottest.value >= threshold) {
+      this.store.setSetting('alerts.hot', true);
+      await this.alert({ type: 'box_hot', message: `Température élevée dans la Freebox : ${hottest.name} à ${hottest.value} °C. Vérifie l'aération de la box.`, tags: ['fire'], priority: 4, data: { sensor: hottest.id, value: hottest.value } });
+    } else if (hot && hottest.value < threshold - 5) {
+      this.store.setSetting('alerts.hot', false);
+      await this.alert({ type: 'box_cool', message: `Température de la Freebox revenue à la normale (${hottest.value} °C)`, tags: ['white_check_mark'] });
+    }
+  }
+
+  /** Module fibre : seulement si la connexion passe par la fibre. */
+  async pollFtth(ts) {
+    if (this.connection?.media !== 'ftth') {
+      this.ftth = null;
+      return;
+    }
+    try {
+      this.ftth = toFtth(await this.freebox.get('connection/ftth/'));
+    } catch {
+      this.ftth = null;
+      return;
+    }
+    if (this.ftth.powerReport) this.store.addMetrics({ 'fiber.rx': this.ftth.rxPower, 'fiber.tx': this.ftth.txPower }, ts);
+  }
+
+  /** Débit et volume par appareil. Les prises sans lien sont ignorées. */
+  async pollTraffic() {
+    const ts = now();
+    const stations = [];
+    const aps = await this.freebox.get('wifi/ap/').catch(() => []);
+    for (const ap of Array.isArray(aps) ? aps : []) {
+      const list = await this.freebox.get(`wifi/ap/${ap.id}/stations/`).catch(() => []);
+      if (Array.isArray(list)) stations.push(...list);
+    }
+    const ports = [];
+    const status = await this.freebox.get('switch/status/').catch(() => []);
+    for (const port of Array.isArray(status) ? status : []) {
+      if (port.link !== 'up') continue;
+      const stats = await this.freebox.get(`switch/port/${port.id}/stats`).catch(() => null);
+      if (stats) ports.push({ port, stats });
+    }
+    const items = deviceTraffic(stations, ports, this.store.listDevices());
+    this.traffic = { ts, items };
+    const values = {};
+    for (const t of items) {
+      if (!t.deviceKey) continue;
+      values[`dev.${t.deviceKey}.down`] = t.downRate;
+      values[`dev.${t.deviceKey}.up`] = t.upRate;
+    }
+    this.store.addMetrics(values, ts);
+    this.emit('traffic', this.traffic);
   }
 
   async pollDevices() {

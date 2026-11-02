@@ -2,7 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '../api.js';
-import { ago, date, duration, EVENT_LABELS, HOST_TYPES } from '../format.js';
+import RateChart from '../components/RateChart.vue';
+import { ago, bytes, date, duration, EVENT_LABELS, HOST_TYPES, rate } from '../format.js';
 import { live } from '../live.js';
 
 const props = defineProps({ deviceKey: { type: String, required: true } });
@@ -137,6 +138,28 @@ async function forget() {
   }
 }
 
+// Historique de trafic (stations Wi-Fi et appareils seuls sur leur prise Ethernet)
+const TRAFFIC_RANGES = [{ id: '1h', label: '1 h', seconds: 3600 }, { id: '24h', label: '24 h', seconds: 86400 }, { id: '7d', label: '7 j', seconds: 7 * 86400 }];
+const trafficRange = ref('1h');
+const trafficPoints = ref([]);
+async function loadTraffic() {
+  const down = `dev.${props.deviceKey}.down`;
+  const up = `dev.${props.deviceKey}.up`;
+  try {
+    const r = await api(`/metrics?keys=${encodeURIComponent(`${down},${up}`)}&range=${trafficRange.value}`);
+    const ups = new Map(r.series[up].map(([t, avg]) => [t, avg]));
+    trafficPoints.value = r.series[down].map(([t, avg]) => [t, avg, ups.get(t) ?? null]);
+  } catch {
+    trafficPoints.value = [];
+  }
+}
+onMounted(loadTraffic);
+watch(trafficRange, loadTraffic);
+watch(() => live.traffic, () => {
+  const t = live.traffic?.items.find((i) => i.deviceKey === props.deviceKey);
+  if (device.value && t) device.value.traffic = t;
+});
+
 const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbios: 'NetBIOS', wsd: 'WS-Discovery' };
 </script>
 
@@ -224,6 +247,21 @@ const INFO_SOURCES = { upnp: 'UPnP', mdns: 'mDNS (Bonjour)', dhcp: 'DHCP', netbi
           <template v-for="[k, v] in section.entries" :key="k"><dt>{{ k }}</dt><dd class="wrap">{{ v }}</dd></template>
         </dl>
       </details>
+    </article>
+
+    <article v-if="device.traffic || trafficPoints.length" class="card">
+      <div class="row between">
+        <h2>Trafic</h2>
+        <div class="tabs">
+          <button v-for="r in TRAFFIC_RANGES" :key="r.id" :class="{ active: trafficRange === r.id }" @click="trafficRange = r.id">{{ r.label }}</button>
+        </div>
+      </div>
+      <div v-if="device.traffic" class="rates">
+        <div><span class="label">Reçoit</span><strong class="down">{{ rate(device.traffic.downRate) }}</strong><span class="muted">{{ bytes(device.traffic.downBytes) }} au total</span></div>
+        <div><span class="label">Envoie</span><strong class="up">{{ rate(device.traffic.upRate) }}</strong><span class="muted">{{ bytes(device.traffic.upBytes) }} au total</span></div>
+      </div>
+      <RateChart v-if="trafficPoints.length" :points="trafficPoints" :range="TRAFFIC_RANGES.find((r) => r.id === trafficRange).seconds" />
+      <p class="muted small">{{ device.traffic?.detail ?? '' }}{{ device.traffic?.link === 'wifi' ? ' · volume depuis la connexion au Wi-Fi' : device.traffic ? ' · volume depuis le démarrage de la box' : 'Pas de mesure récente' }}</p>
     </article>
 
     <article class="card">

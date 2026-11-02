@@ -9,6 +9,8 @@ export const live = reactive({
   lastEvent: null,
   // Incrémenté à chaque changement de la liste des appareils : les écrans se rechargent
   devicesVersion: 0,
+  // Dernier relevé du trafic par appareil
+  traffic: null,
   // Débits des 5 dernières minutes pour le graphique « en direct »
   recent: [],
 });
@@ -30,6 +32,7 @@ export function startLive() {
     status(s) { live.status = s; },
     event(e) { live.lastEvent = e; },
     devices() { live.devicesVersion += 1; },
+    traffic(t) { live.traffic = t; },
   });
 }
 

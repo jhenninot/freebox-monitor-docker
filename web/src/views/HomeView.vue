@@ -18,6 +18,25 @@ const overview = ref(null);
 const range = ref('live');
 const history = ref([]);
 const error = ref('');
+// Trafic par appareil
+const trafficSort = ref('rate');
+const trafficData = ref(null);
+const showAllTraffic = ref(false);
+// Même seuil que l'alerte côté serveur (TEMP_ALERT_CELSIUS)
+const hottest = computed(() => (system.value?.sensors?.length ? Math.max(...system.value.sensors.map((s) => s.value)) : null));
+const hot = computed(() => hottest.value !== null && hottest.value >= (overview.value?.tempAlertCelsius ?? 85));
+const ftth = computed(() => system.value?.ftth ?? null);
+const dbm = (v) => (v === null || v === undefined ? '—' : `${v.toLocaleString('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 2 })} dBm`);
+
+const trafficItems = computed(() => {
+  const items = trafficData.value?.items ?? [];
+  const value = (t) => (trafficSort.value === 'volume' ? t.downBytes + t.upBytes : t.downRate + t.upRate);
+  const sorted = [...items].sort((a, b) => value(b) - value(a) || a.name.localeCompare(b.name, 'fr'));
+  return showAllTraffic.value ? sorted : sorted.slice(0, 8);
+});
+async function loadTraffic() {
+  trafficData.value = await api(`/traffic?sort=${trafficSort.value}`).catch(() => trafficData.value);
+}
 
 const connection = computed(() => live.connection ?? overview.value?.connection);
 const system = computed(() => live.system ?? overview.value?.system);
@@ -41,7 +60,8 @@ async function loadHistory() {
   history.value = r.series['wan.down'].map(([t, avg]) => [t, avg, up.get(t) ?? null]);
 }
 
-onMounted(load);
+onMounted(() => { load(); loadTraffic(); });
+watch(() => live.traffic, (t) => { if (t) trafficData.value = { ...t, sort: trafficSort.value }; });
 watch(range, loadHistory);
 watch(() => live.lastEvent, load);
 watch(() => live.devicesVersion, load);
@@ -66,6 +86,12 @@ watch(() => live.devicesVersion, load);
             <dt>IPv4</dt><dd>{{ connection.ipv4 ?? '—' }}<span v-if="connection.ipv4PortRange" class="muted"> (partagée, ports {{ connection.ipv4PortRange.join('–') }})</span></dd>
             <dt>IPv6</dt><dd class="wrap">{{ connection.ipv6 ?? '—' }}</dd>
             <dt>Échangé</dt><dd>↓ {{ bytes(connection.bytesDown) }} · ↑ {{ bytes(connection.bytesUp) }}</dd>
+            <template v-if="ftth?.sfpPresent">
+              <dt>Signal fibre</dt><dd><span class="dot" :class="ftth.signal ? 'ok' : 'bad'" /> {{ ftth.signal ? 'Présent' : 'Absent' }}</dd>
+              <template v-if="ftth.powerReport">
+                <dt>Puissance reçue / émise</dt><dd>{{ dbm(ftth.rxPower) }} / {{ dbm(ftth.txPower) }}</dd>
+              </template>
+            </template>
           </dl>
         </template>
         <p v-else class="muted">En attente de la première mesure…</p>
@@ -74,6 +100,7 @@ watch(() => live.devicesVersion, load);
       <article class="card">
         <h2>Freebox Server</h2>
         <template v-if="system">
+          <p v-if="hot" class="pill bad">Température élevée ({{ hottest }} °C) : vérifie l'aération de la box</p>
           <dl>
             <dt>Modèle</dt><dd>{{ system.model ?? '—' }}</dd>
             <dt>Firmware</dt><dd>{{ system.firmware ?? '—' }}</dd>
@@ -102,6 +129,34 @@ watch(() => live.devicesVersion, load);
       </div>
       <RateChart :points="points" :range="rangeSeconds" />
       <p class="muted small">{{ range === 'live' ? 'Mesures en direct depuis l\'ouverture de la page' : 'Moyennes enregistrées par le serveur' }}</p>
+    </article>
+
+    <article v-if="trafficData?.items.length" class="card">
+      <div class="row between">
+        <h2>Trafic par appareil</h2>
+        <div class="tabs">
+          <button :class="{ active: trafficSort === 'rate' }" @click="trafficSort = 'rate'">Débit actuel</button>
+          <button :class="{ active: trafficSort === 'volume' }" @click="trafficSort = 'volume'">Volume</button>
+        </div>
+      </div>
+      <table class="traffic">
+        <thead><tr><th>Appareil</th><th>Reçoit</th><th>Envoie</th></tr></thead>
+        <tbody>
+          <tr v-for="t in trafficItems" :key="t.id">
+            <td>
+              <RouterLink v-if="t.deviceKey" :to="`/appareils/${encodeURIComponent(t.deviceKey)}`">{{ t.name }}</RouterLink>
+              <span v-else>{{ t.name }}</span>
+              <div class="muted small">{{ t.detail }}</div>
+            </td>
+            <td class="down">{{ trafficSort === 'volume' ? bytes(t.downBytes) : rate(t.downRate) }}</td>
+            <td class="up">{{ trafficSort === 'volume' ? bytes(t.upBytes) : rate(t.upRate) }}</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="row between">
+        <p class="muted small">Wi-Fi : volume depuis la connexion de l'appareil. Ethernet : par prise, depuis le démarrage de la box.</p>
+        <button v-if="trafficData.items.length > 8" class="ghost small" @click="showAllTraffic = !showAllTraffic">{{ showAllTraffic ? 'Réduire' : `Tout afficher (${trafficData.items.length})` }}</button>
+      </div>
     </article>
 
     <article v-if="overview?.events.length" class="card">
