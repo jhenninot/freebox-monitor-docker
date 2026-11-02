@@ -26,6 +26,15 @@ export function startFakeFreebox(port = 0) {
     redirs: [],
     incoming: [{ id: 'https', enabled: true, type: 'tcp', in_port: 443 }, { id: 'wireguard', enabled: false, type: 'udp', in_port: 51820 }],
     dmz: { enabled: false, ip: '' },
+    vpnServers: [{ name: 'wireguard', type: 'wireguard', state: 'started', connection_count: 1 }, { name: 'openvpn_routed', type: 'openvpn', state: 'stopped', connection_count: 0 }],
+    vpnConfigs: {
+      wireguard: { id: 'wireguard', type: 'wireguard', enabled: true, port: 51820, min_port: 1024, max_port: 65535, conf_wireguard: { mtu: 1360 }, ip_start: '192.168.27.65', ip_end: '192.168.27.94' },
+      openvpn_routed: { id: 'openvpn_routed', type: 'openvpn', enabled: false, port: 1194, min_port: 1024, max_port: 65535, enable_ipv4: true, enable_ipv6: false, conf_openvpn: { cipher: 'aes256', use_tcp: false, disable_fragment: false } },
+    },
+    vpnConnections: [{ id: 'c1', vpn: 'wireguard', user: 'julien', authenticated: true, auth_time: 1700000000, src_ip: '80.1.2.3', src_port: 40000, local_ip: '192.168.27.65', rx_bytes: 1e6, tx_bytes: 5e6 }],
+    vpnUsers: [{ login: 'julien', type: 'wireguard', password_set: false, ip_reservation: '192.168.27.65', conf_wireguard: { keepalive: 25, psk: true } }],
+    vpnClientConfigs: [],
+    vpnClientStatus: { enabled: false, state: 'down', last_error: 'none' },
   };
   let nextRedir = 1;
   const ok = (res, result) => res.json({ success: true, result });
@@ -112,6 +121,48 @@ export function startFakeFreebox(port = 0) {
     Object.assign(entry, req.body);
     ok(res, entry);
   });
+  api.get('/vpn/', (_req, res) => ok(res, state.vpnServers));
+  api.get('/vpn/connection/', (_req, res) => ok(res, state.vpnConnections));
+  api.delete('/vpn/connection/:id', (req, res) => { state.vpnConnections = state.vpnConnections.filter((c) => c.id !== req.params.id); ok(res); });
+  api.get('/vpn/user/', (_req, res) => ok(res, state.vpnUsers));
+  api.post('/vpn/user/', (req, res) => {
+    const { password, ...user } = req.body;
+    const created = { password_set: Boolean(password), ...user };
+    state.vpnUsers.push(created);
+    ok(res, created);
+  });
+  api.put('/vpn/user/:login', (req, res) => {
+    const user = state.vpnUsers.find((u) => u.login === req.params.login);
+    const { password, ...changes } = req.body;
+    Object.assign(user, changes, password ? { password_set: true } : {});
+    ok(res, user);
+  });
+  api.delete('/vpn/user/:login', (req, res) => { state.vpnUsers = state.vpnUsers.filter((u) => u.login !== req.params.login); ok(res); });
+  api.get('/vpn/ip_pool/', (_req, res) => ok(res, { ip_start: '192.168.27.65', ip_end: '192.168.27.94', reservations: state.vpnUsers.filter((u) => u.ip_reservation).map((u) => ({ login: u.login, ip: u.ip_reservation })) }));
+  api.get('/vpn/download_config/:server/:login/plain', (req, res) => res.type('text/plain').send(`[Interface]\nPrivateKey = cle-${req.params.login}=\nAddress = 192.168.27.65/32\n\n[Peer]\nPublicKey = serveur=\nEndpoint = 82.1.2.3:51820\n`));
+  api.get('/vpn/:id/config/', (req, res) => ok(res, state.vpnConfigs[req.params.id]));
+  api.put('/vpn/:id/config/', (req, res) => {
+    const c = state.vpnConfigs[req.params.id];
+    for (const [k, v] of Object.entries(req.body)) c[k] = v && typeof v === 'object' ? { ...c[k], ...v } : v;
+    const server = state.vpnServers.find((s) => s.name === req.params.id);
+    if (typeof req.body.enabled === 'boolean') server.state = req.body.enabled ? 'started' : 'stopped';
+    ok(res, c);
+  });
+  api.get('/vpn_client/config/', (_req, res) => ok(res, state.vpnClientConfigs));
+  api.post('/vpn_client/config/', (req, res) => {
+    const c = { id: `cfg${state.vpnClientConfigs.length + 1}`, active: false, ...req.body };
+    state.vpnClientConfigs.push(c);
+    ok(res, c);
+  });
+  api.put('/vpn_client/config/:id', (req, res) => {
+    const c = state.vpnClientConfigs.find((x) => x.id === req.params.id);
+    if (req.body.active) state.vpnClientConfigs.forEach((x) => { x.active = false; });
+    Object.assign(c, req.body);
+    ok(res, c);
+  });
+  api.delete('/vpn_client/config/:id', (req, res) => { state.vpnClientConfigs = state.vpnClientConfigs.filter((x) => x.id !== req.params.id); ok(res); });
+  api.get('/vpn_client/status', (_req, res) => ok(res, state.vpnClientStatus));
+  api.get('/vpn_client/log', (_req, res) => ok(res, '12:00 connexion\n12:01 refusé'));
   api.get('/wifi/config/', (_req, res) => ok(res, state.wifiConfig));
   api.put('/wifi/config/', (req, res) => { Object.assign(state.wifiConfig, req.body); ok(res, state.wifiConfig); });
   api.get('/wifi/mac_filter/', (_req, res) => ok(res, state.macFilters));

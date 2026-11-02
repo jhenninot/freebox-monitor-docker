@@ -3,6 +3,8 @@
 const SECTIONS = [
   { to: '/reseau/ip-fixes', title: 'IP fixes', text: 'Baux DHCP statiques, adresses à fixer, rappel des appareils surveillés' },
   { to: '/reseau/redirections', title: 'Redirections de ports', text: 'Ports ouverts depuis Internet vers un appareil, conflits, état de la DMZ' },
+  { to: '/reseau/vpn', title: 'Serveur VPN', text: 'WireGuard, OpenVPN… : démarrer, régler, connexions, accès avec fichier et QR code' },
+  { to: '/reseau/client-vpn', title: 'Client VPN de la box', text: 'Faire passer tout le réseau par un VPN extérieur : configurations, état, journal' },
   { to: '/reseau/filtrage-wifi', title: 'Filtrage Wi-Fi', text: 'Listes blanche et noire des adresses MAC autorisées sur le Wi-Fi' },
 ];
 </script>

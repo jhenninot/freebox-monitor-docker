@@ -49,7 +49,7 @@ export class FreeboxClient {
     return `${this.baseUrl}/api/v${major ?? this.credentials.load()?.apiMajor ?? DEFAULT_API_MAJOR}/`;
   }
 
-  async raw(method, url, { body, auth = true, timeoutMs = 10000 } = {}) {
+  async raw(method, url, { body, auth = true, timeoutMs = 10000, plain = false } = {}) {
     const headers = { Accept: 'application/json' };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (auth && this.sessionToken) headers['X-Fbx-App-Auth'] = this.sessionToken;
@@ -64,6 +64,8 @@ export class FreeboxClient {
     } catch (e) {
       throw new FreeboxError(`Freebox injoignable (${e.cause?.code || e.name}) : ${url.replace(/\?.*/, '')}`, { code: 'unreachable' });
     }
+    // Fichiers renvoyés tels quels (configuration VPN...) : seulement si ce n'est pas une erreur JSON
+    if (plain && res.ok && !/json/i.test(res.headers.get('content-type') ?? '')) return res.text();
     let json = null;
     try {
       json = await res.json();
@@ -166,21 +168,23 @@ export class FreeboxClient {
   }
 
   /** Appel authentifié, avec réouverture de session si elle a expiré. */
-  async request(method, path, body) {
+  async request(method, path, body, { plain = false } = {}) {
     if (!this.sessionToken) await this.login();
     try {
-      return await this.raw(method, this.apiBase() + path, { body });
+      return await this.raw(method, this.apiBase() + path, { body, plain });
     } catch (e) {
       if (e.code === 'auth_required' || e.code === 'invalid_session') {
         this.sessionToken = null;
         await this.login();
-        return this.raw(method, this.apiBase() + path, { body });
+        return this.raw(method, this.apiBase() + path, { body, plain });
       }
       throw e;
     }
   }
 
   get(path) { return this.request('GET', path); }
+  /** GET d'un fichier texte (réponse hors enveloppe JSON). */
+  getText(path) { return this.request('GET', path, undefined, { plain: true }); }
   put(path, body) { return this.request('PUT', path, body); }
   post(path, body) { return this.request('POST', path, body); }
   del(path) { return this.request('DELETE', path); }

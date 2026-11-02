@@ -8,6 +8,7 @@ import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
 import { networkRouter } from './routes/network.js';
 import { scanRouter } from './routes/scan.js';
+import { vpnRouter } from './routes/vpn.js';
 import { passwordMatches } from './security.js';
 
 const COOKIE = 'fbm_session';
@@ -284,6 +285,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   api.use(boxRouter({ freebox, store, collector }));
   api.use(scanRouter({ store, scans: collector.scans }));
   api.use(networkRouter({ freebox, store, collector }));
+  api.use(vpnRouter({ freebox }));
 
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);

@@ -38,6 +38,9 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 - Redirections de ports : liste, ajout (plages, IP source), modification, activation, suppression, avec les
   avertissements de l'appli Android (port déjà pris par la box ou une autre redirection, destination sans IP fixe,
   IPv4 partagée) ; état de la DMZ et ports utilisés par les services de la box
+- Serveur VPN : démarrer / arrêter WireGuard, OpenVPN, IPsec, PPTP, port, MTU, chiffrement ; connexions en cours
+  (déconnecter) ; accès (création, IP réservée, mot de passe) ; fichier de configuration et QR code WireGuard
+- Client VPN de la box : import d'un fichier .conf WireGuard ou réglages PPTP, activation, état, débit, journal
 - Filtrage Wi-Fi : mode (désactivé, liste blanche, liste noire), listes, ajout depuis les appareils connus ;
   avant d'activer la liste blanche, ajout proposé des appareils connectés en Wi-Fi et de celui depuis lequel tu consultes
 

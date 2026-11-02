@@ -173,3 +173,9 @@ label.switch { display: inline-flex; margin: 0 0.4rem 0 0; font-size: 0.85rem; }
 ul.plain { list-style: none; padding: 0; margin: 0; }
 ul.plain li { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.4rem 0; border-top: 1px solid var(--border); }
 ul.plain li:first-child { border-top: 0; }
+pre { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; overflow-x: auto; font-size: 0.8rem; white-space: pre-wrap; word-break: break-all; }
+textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85rem; width: 100%; padding: 0.5rem; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); margin-bottom: 0.4rem; }
+.config-file { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-start; margin-bottom: 0.75rem; }
+.config-file pre { flex: 1; min-width: 260px; margin: 0; }
+.qr { width: 240px; text-align: center; }
+.qr svg { width: 240px; height: 240px; background: #fff; border-radius: 8px; }
