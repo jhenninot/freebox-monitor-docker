@@ -15,6 +15,9 @@ box.state.hosts = [
 for (const h of box.state.hosts.filter((x) => ['proxmox', 'homeassistant', 'Imprimante'].includes(x.primary_name))) {
   h.access_point = { connectivity_type: 'ethernet' };
 }
+// Types variés pour essayer les icônes
+const TYPES = { proxmox: 'nas', homeassistant: 'networking_device', 'iPhone de Julien': 'smartphone', Imprimante: 'printer', 'Cette machine': 'laptop' };
+for (const h of box.state.hosts) h.host_type = TYPES[h.primary_name] ?? 'workstation';
 box.state.staticLeases = [{ id: 'AA:00:00:00:00:02', mac: 'AA:00:00:00:00:02', ip: '192.168.1.30', comment: 'Home Assistant', hostname: 'homeassistant' }];
 box.state.dynamicLeases = [
   { mac: 'AA:00:00:00:00:01', ip: '192.168.1.20', hostname: 'proxmox', is_static: false, lease_remaining: 40000 },

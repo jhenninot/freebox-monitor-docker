@@ -1,6 +1,7 @@
 <script setup>
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '../api.js';
+import DeviceTypeIcon from '../components/DeviceTypeIcon.vue';
 import LinkIcon from '../components/LinkIcon.vue';
 import { ago, HOST_TYPES } from '../format.js';
 import { live } from '../live.js';
@@ -68,17 +69,20 @@ async function toggle(device, field) {
       </select>
     </div>
     <p v-if="error" class="error">{{ error }}</p>
-    <p class="muted small">{{ shown.length }} appareils affichés · ⭐ = surveillé (alerte s'il passe hors ligne) · 📌 = IP fixe</p>
+    <p class="muted small">{{ shown.length }} appareils affichés · ⭐ = surveillé (alerte s'il passe hors ligne, à régler sur sa fiche) · 📌 = IP fixe</p>
 
     <ul class="devices">
       <li v-for="d in shown" :key="d.key" :class="{ offline: !d.online }">
-        <button class="star" :class="{ on: d.watched }" :title="d.watched ? 'Ne plus surveiller' : 'Surveiller'" @click="toggle(d, 'watched')">★</button>
         <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
-          <LinkIcon :link="d.link" :online="d.online" />
-          <span class="name">{{ d.name }}<span v-if="d.fixedIp" class="pin" title="IP fixe"> 📌</span></span>
+          <DeviceTypeIcon :type="d.hostType" />
+          <span class="main">
+            <span class="name">{{ d.name }}<span v-if="d.fixedIp" class="pin" title="IP fixe"> 📌</span><span v-if="d.watched" class="pin" title="Surveillé"> ⭐</span></span>
+            <span class="sub ip">{{ d.ipv4 ?? '' }}</span>
+          </span>
           <span class="muted small">{{ HOST_TYPES[d.hostType] ?? d.hostType }}<template v-if="d.vendor"> · {{ d.vendor }}</template></span>
           <span class="ip">{{ d.ipv4 ?? '' }}</span>
           <span class="muted small">{{ d.online ? (d.link === 'wifi' ? `Wi-Fi ${d.wifiBand ?? ''}` : d.link === 'ethernet' ? 'Câble' : 'En ligne') : ago(d.lastSeen) }}</span>
+          <LinkIcon :link="d.link" :online="d.online" small />
         </RouterLink>
       </li>
     </ul>
@@ -87,13 +91,16 @@ async function toggle(device, field) {
       <button class="ghost" @click="showHidden = !showHidden">Appareils masqués ({{ hidden.length }})</button>
       <ul v-if="showHidden" class="devices">
         <li v-for="d in hidden" :key="d.key" class="offline">
-          <span class="star" />
           <RouterLink :to="`/appareils/${encodeURIComponent(d.key)}`" class="device">
-            <LinkIcon :link="d.link" :online="d.online" />
-            <span class="name">{{ d.name }}</span>
+            <DeviceTypeIcon :type="d.hostType" />
+            <span class="main">
+              <span class="name">{{ d.name }}</span>
+              <span class="sub ip">{{ d.ipv4 ?? '' }}</span>
+            </span>
             <span class="muted small">{{ d.vendor }}</span>
             <span class="ip">{{ d.ipv4 ?? '' }}</span>
             <span class="muted small">{{ d.online ? 'En ligne' : ago(d.lastSeen) }}</span>
+            <LinkIcon :link="d.link" :online="d.online" small />
           </RouterLink>
           <button class="ghost small" @click="toggle(d, 'hidden')">Afficher</button>
         </li>

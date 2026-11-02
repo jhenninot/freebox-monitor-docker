@@ -3,12 +3,13 @@
 const props = defineProps({
   link: { type: String, default: null },
   online: { type: Boolean, default: false },
+  small: { type: Boolean, default: false },
 });
 const title = () => `${props.link === 'wifi' ? 'Wi-Fi' : props.link === 'ethernet' ? 'Câble' : 'Connexion inconnue'} · ${props.online ? 'connecté' : 'déconnecté'}`;
 </script>
 
 <template>
-  <span class="link-icon" :class="{ on: online }" :title="title()" role="img" :aria-label="title()">
+  <span class="link-icon" :class="{ on: online, small }" :title="title()" role="img" :aria-label="title()">
     <svg v-if="link === 'wifi'" viewBox="0 0 24 24" aria-hidden="true">
       <path d="M2.5 9.5a13.5 13.5 0 0 1 19 0" />
       <path d="M5.8 12.8a8.8 8.8 0 0 1 12.4 0" />
@@ -33,5 +34,7 @@ const title = () => `${props.link === 'wifi' ? 'Wi-Fi' : props.link === 'etherne
 }
 .link-icon.on { background: var(--accent); color: #fff; }
 .link-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.link-icon.small { width: 20px; height: 20px; }
+.link-icon.small svg { width: 12px; height: 12px; stroke-width: 2.4; }
 .link-icon svg .fill { fill: currentColor; stroke: none; }
 </style>
