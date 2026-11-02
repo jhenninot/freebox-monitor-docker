@@ -69,7 +69,7 @@ const CALLS = { register: 'inscription confirmée', unregister: 'désinscription
     <h1>Notifications de la box</h1>
     <p class="muted small">
       La Freebox prévient elle-même de certains événements (nouvel appareil, redémarrage, mot de passe changé, appel manqué…).
-      Ce serveur s'inscrit comme destinataire : chaque notification arrive dans le journal et sur ton téléphone par ntfy.
+      Ce serveur s'inscrit comme destinataire : chaque notification arrive dans le journal et en notification push sur tes appareils abonnés (Journal et alertes).
     </p>
     <p v-if="error" class="error">{{ error }}</p>
     <p v-if="message" class="ok">{{ message }}</p>

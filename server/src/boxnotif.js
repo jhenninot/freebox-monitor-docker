@@ -1,6 +1,6 @@
 // Notifications envoyées par la Freebox (API 11 et plus). Le serveur s'inscrit lui-même comme « cible » auprès
 // de la box et joue le rôle du relais : la box l'appelle (contrat « Notification server specification » de
-// Freebox OS), et chaque notification est inscrite au journal puis envoyée par ntfy.
+// Freebox OS), et chaque notification est inscrite au journal puis envoyée en push aux navigateurs abonnés.
 // Règles et textes repris de domain/BoxNotifications.kt et du relais server/src/messages.js de l'appli Android.
 import crypto from 'node:crypto';
 import express from 'express';
@@ -133,7 +133,6 @@ export function boxNotifReceiver({ store, collector, log = console }) {
     await collector.alert({
       type: 'box_notif',
       message: `${m.title} : ${m.body}`,
-      tags: ['bell'],
       priority: m.priority,
       data: payload ?? null,
     });

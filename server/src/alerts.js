@@ -59,23 +59,3 @@ export function evaluateAlerts(devices, settings, watched, memory, nowSeconds) {
     memory: { known: [...new Set([...known, ...keys])], down: [...down], initialized: true },
   };
 }
-
-/** Envoi par ntfy (JSON publié à la racine du serveur : accepte les accents dans le titre). */
-export function createNtfyNotifier({ url, topic, token }, { fetchImpl = fetch, log = console } = {}) {
-  if (!url || !topic) return null;
-  return async ({ title, message, tags = [], priority = 3, click }) => {
-    const headers = { 'Content-Type': 'application/json' };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    const res = await fetchImpl(url, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({ topic, title, message, tags, priority, ...(click ? { click } : {}) }),
-      signal: AbortSignal.timeout(10000),
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => '');
-      throw new Error(`ntfy a répondu HTTP ${res.status} ${text.slice(0, 200)}`);
-    }
-    log.info?.(`Alerte envoyée par ntfy : ${title}`);
-  };
-}

@@ -41,7 +41,7 @@ before(async () => {
   const freebox = new FreeboxClient({ baseUrl: config.freeboxUrl, credentials, log: quiet });
   const notify = async (n) => { sent.push(n); };
   collector = new Collector({ freebox, store, config, notify, log: quiet });
-  const app = createApp({ config, store, secrets, freebox, collector, notify, log: quiet });
+  const app = createApp({ config, store, secrets, freebox, collector, log: quiet });
   await new Promise((resolve) => { server = app.listen(0, '127.0.0.1', resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
 });

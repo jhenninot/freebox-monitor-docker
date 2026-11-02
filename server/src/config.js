@@ -45,12 +45,8 @@ export function loadConfig(env = process.env) {
     // Seuil de l'alerte « température élevée » (capteur le plus chaud de la box)
     tempAlertCelsius: int(env.TEMP_ALERT_CELSIUS, 85),
 
-    // Alertes envoyées par ntfy (https://ntfy.sh ou une instance auto-hébergée)
-    ntfy: {
-      url: (env.NTFY_URL || '').replace(/\/+$/, ''),
-      topic: (env.NTFY_TOPIC || '').trim(),
-      token: (env.NTFY_TOKEN || '').trim(),
-    },
+    // Notifications Web Push : contact donné aux services de push des navigateurs (mailto: ou https:)
+    pushSubject: (env.PUSH_SUBJECT || 'https://github.com/jhenninot/freebox-monitor-docker').trim(),
   };
 }
 

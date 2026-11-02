@@ -5,7 +5,7 @@ un conteneur qui tourne en permanence à côté de la Freebox, garde l'historiqu
 
 ```
 Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──> interface web (Vue 3)
-                                   │                                └─> alertes ntfy sur le téléphone
+                                   │                                └─> notifications push (PWA)
                                    └── volume Docker : base + sauvegardes
 ```
 
@@ -42,7 +42,7 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
   (déconnecter) ; accès (création, IP réservée, mot de passe) ; fichier de configuration et QR code WireGuard
 - Client VPN de la box : import d'un fichier .conf WireGuard ou réglages PPTP, activation, état, débit, journal
 - Notifications de la box : le serveur s'inscrit comme destinataire auprès de la Freebox (API 11) ; nouvel appareil,
-  redémarrage, mot de passe changé, appel manqué… arrivent dans le journal et par ntfy. La box appelle
+  redémarrage, mot de passe changé, appel manqué… arrivent dans le journal et en notification push. La box appelle
   `<adresse>/box-notif/<secret>` : une IP locale en http suffit, pas besoin d'exposer le serveur sur Internet
 - Filtrage Wi-Fi : mode (désactivé, liste blanche, liste noire), listes, ajout depuis les appareils connus ;
   avant d'activer la liste blanche, ajout proposé des appareils connectés en Wi-Fi et de celui depuis lequel tu consultes
@@ -53,7 +53,15 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 - Port qui s'ouvre sur un appareil surveillé : scan rapide chaque nuit (heure réglable dans le Journal),
   comparé au scan précédent
 - Température élevée dans la box (seuil `TEMP_ALERT_CELSIUS`, 85 °C par défaut), puis retour à la normale 5 °C en dessous
-- Tout est inscrit au journal ; envoi sur le téléphone par [ntfy](https://ntfy.sh) si configuré
+- Tout est inscrit au journal et envoyé en **notification push** aux appareils abonnés (voir ci-dessous)
+
+**Appli installable et notifications push**
+- PWA : « Installer Freebox Monitor » dans Chrome (ordinateur) ou « Ajouter à l'écran d'accueil » (Android, iPhone)
+- Notifications Web Push sur Chrome, Edge, Firefox, Android et iPhone (iOS 16.4+, appli installée), même appli fermée ;
+  bouton **Activer sur cet appareil** dans *Journal et alertes*, liste des appareils abonnés, notification de test
+- Un clic sur la notification ouvre l'appareil concerné ou le journal ; une alerte envoyée pendant une coupure
+  Internet est renvoyée au retour de la connexion (pendant 24 h)
+- Exige une adresse en **HTTPS** : voir [docs/https-npm.md](docs/https-npm.md) (Nginx Proxy Manager)
 
 **Sécurité**
 - Interface protégée par mot de passe (cookie de session signé, 10 essais par quart d'heure)
@@ -75,9 +83,8 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
    | `APP_SECRET` | le secret de l'étape 1 |
    | `ADMIN_PASSWORD` | le mot de passe de l'interface (8 caractères minimum) |
    | `FREEBOX_URL` | facultatif, `http://mafreebox.freebox.fr` par défaut (ou `http://192.168.1.254`) |
-   | `NTFY_URL`, `NTFY_TOPIC` | facultatif, par exemple `https://ntfy.sh` et un sujet difficile à deviner |
    | `PUBLIC_URL` | facultatif, adresse de ce serveur vue par la box pour ses notifications (ex. `http://192.168.1.20:8086`), modifiable dans l'interface |
-   | `NTFY_TOKEN` | facultatif, jeton d'accès si le sujet ntfy est protégé |
+   | `PUSH_SUBJECT` | facultatif, contact donné aux services de push (`mailto:toi@exemple.fr`), l'adresse du dépôt par défaut |
 
 4. Démarrer la stack : les logs affichent « Freebox Monitor … prêt sur le port 8080 ».
 5. Ouvrir `http://<serveur-docker>:8086`, se connecter, cliquer sur **Associer** et valider sur l'écran du Freebox Server.
@@ -93,9 +100,10 @@ Si `mafreebox.freebox.fr` ne se résout pas depuis le conteneur, mettre l'IP de 
 
 ### Nginx Proxy Manager
 
-L'appli peut modifier la box : il vaut mieux la garder accessible **uniquement en local et via le VPN de la Freebox**.
-Pour l'exposer par NPM quand même : Proxy Host vers `http://<serveur-docker>:8086`, certificat Let's Encrypt
-et une **Access List** limitée au réseau local. Le flux temps réel (Server-Sent Events) désactive lui-même la mise en tampon de Nginx.
+Les notifications push et l'installation de l'appli demandent une adresse en **HTTPS** : le guide pas à pas est dans
+[docs/https-npm.md](docs/https-npm.md) (Proxy Host vers `http://<serveur>:8086`, certificat Let's Encrypt, Access List
+limitée au réseau local et au VPN). L'appli peut modifier la box : ne pas l'ouvrir à tout Internet.
+Le flux temps réel (Server-Sent Events) désactive lui-même la mise en tampon de Nginx.
 
 ### Sauvegardes
 
@@ -141,14 +149,17 @@ server/src/
 ├── config.js         variables d'environnement
 ├── app.js            API REST + flux temps réel (SSE) + fichiers de l'interface
 ├── collector.js      collecte périodique, journal, envoi des alertes
-├── alerts.js         règles des alertes (traduites de l'appli Android) et envoi ntfy
+├── alerts.js         règles des alertes (traduites de l'appli Android)
+├── webpush.js        notifications Web Push : clés VAPID, chiffrement, abonnés, renvoi après coupure
 ├── db.js             SQLite : schéma, migrations, agrégats, conservation
 ├── security.js       HMAC Freebox, AES-GCM, cookies signés
 └── freebox/          client de l'API Freebox OS (association, session) et conversions
 web/src/
 ├── views/            Accueil, Appareils, fiche appareil, Journal, Association, Connexion
-├── components/       courbe des débits (Chart.js)
+├── components/       courbe des débits (Chart.js), carte des notifications push
+├── push.js           abonnement de ce navigateur aux notifications
 └── api.js, live.js   appels à l'API et état temps réel
+web/public/sw.js      service worker : appli installable, affichage des notifications
 ```
 
 ## Prochaines étapes

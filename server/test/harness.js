@@ -5,6 +5,7 @@ import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db.js';
 import { FreeboxClient } from '../src/freebox/client.js';
 import { Secrets } from '../src/security.js';
+import { WebPush } from '../src/webpush.js';
 import { startFakeFreebox } from './fake-freebox.js';
 
 const quiet = { info() {}, warn() {}, error() {} };
@@ -25,7 +26,14 @@ export async function startHarness() {
   const sent = [];
   const notify = async (n) => { sent.push(n); };
   const collector = new Collector({ freebox, store, config, notify, log: quiet });
-  const app = createApp({ config, store, secrets, freebox, collector, notify, log: quiet });
+  // Service de push simulé : garde les requêtes envoyées aux navigateurs abonnés
+  const pushed = [];
+  const pushFetch = async (url, init) => {
+    pushed.push({ url, ...init });
+    return new Response(null, { status: url.includes('expire') ? 410 : 201 });
+  };
+  const push = new WebPush({ store, secrets, subject: config.pushSubject, fetchImpl: pushFetch, log: quiet });
+  const app = createApp({ config, store, secrets, freebox, collector, push, log: quiet });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = '';
@@ -44,7 +52,7 @@ export async function startHarness() {
   await call('POST', '/api/auth/login', { password: 'motdepasse' });
 
   return {
-    box, store, collector, freebox, sent, call,
+    box, store, collector, freebox, sent, call, push, pushed,
     close() {
       server.close();
       box.close();

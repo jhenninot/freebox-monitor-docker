@@ -1,13 +1,13 @@
 // Point d'entrée : configuration, base, client Freebox, collecte et serveur HTTP
 import fs from 'node:fs';
 import path from 'node:path';
-import { createNtfyNotifier } from './alerts.js';
 import { createApp } from './app.js';
 import { Collector } from './collector.js';
 import { checkConfig, loadConfig } from './config.js';
 import { openDatabase } from './db.js';
 import { FreeboxClient } from './freebox/client.js';
 import { Secrets } from './security.js';
+import { WebPush } from './webpush.js';
 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 const config = loadConfig();
@@ -39,9 +39,11 @@ if (store.getSetting('freebox.credentials') && !credentials.load()) {
 }
 
 const freebox = new FreeboxClient({ baseUrl: config.freeboxUrl, credentials, appVersion: pkg.version });
-const notify = createNtfyNotifier(config.ntfy);
+// Alertes envoyées en notification push aux navigateurs abonnés (PWA)
+const push = new WebPush({ store, secrets, subject: config.pushSubject });
+const notify = (notification) => push.send(notification);
 const collector = new Collector({ freebox, store, config, notify });
-const app = createApp({ config, store, secrets, freebox, collector, notify });
+const app = createApp({ config, store, secrets, freebox, collector, push });
 
 // Sauvegarde quotidienne de la base dans le volume (/data/backup/freebox-monitor-<jour>.db, 7 jours gardés)
 function backup() {
@@ -61,13 +63,14 @@ const backupTimer = setInterval(backup, 24 * 3600 * 1000);
 const server = app.listen(config.port, () => {
   console.log(`Freebox Monitor ${pkg.version} prêt sur le port ${config.port}`
     + ` (Freebox : ${config.freeboxUrl}, ${freebox.paired ? 'associé' : 'à associer depuis l\'interface'}`
-    + `, alertes ntfy : ${notify ? 'oui' : 'non'})`);
+    + `, navigateurs abonnés aux notifications : ${push.count})`);
   collector.start();
 });
 
 function shutdown(signal) {
   console.log(`${signal} reçu, arrêt`);
   collector.stop();
+  push.stop();
   clearInterval(backupTimer);
   server.close(() => {
     store.close();

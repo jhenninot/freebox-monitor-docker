@@ -103,12 +103,12 @@ export class Collector extends EventEmitter {
 
     if (before) {
       if (before.state === 'up' && c.state !== 'up') {
-        await this.alert({ type: 'wan_down', message: `Connexion Internet perdue (état : ${c.state})`, tags: ['warning'], priority: 4 });
+        await this.alert({ type: 'wan_down', message: `Connexion Internet perdue (état : ${c.state})`, priority: 4 });
       } else if (before.state !== 'up' && c.state === 'up') {
-        await this.alert({ type: 'wan_up', message: `Connexion Internet rétablie (${c.media ?? 'inconnu'})`, tags: ['white_check_mark'] });
+        await this.alert({ type: 'wan_up', message: `Connexion Internet rétablie (${c.media ?? 'inconnu'})` });
       }
       if (before.ipv4 && c.ipv4 && before.ipv4 !== c.ipv4) {
-        await this.alert({ type: 'ip_change', message: `Nouvelle IPv4 publique : ${c.ipv4} (avant : ${before.ipv4})`, tags: ['globe_with_meridians'], data: { before: before.ipv4, after: c.ipv4 } });
+        await this.alert({ type: 'ip_change', message: `Nouvelle IPv4 publique : ${c.ipv4} (avant : ${before.ipv4})`, data: { before: before.ipv4, after: c.ipv4 } });
       }
     }
     this.emit('connection', this.connection);
@@ -126,7 +126,7 @@ export class Collector extends EventEmitter {
     this.store.setSetting('system.labels', Object.fromEntries([...s.sensors, ...s.fans].map((v) => [v.id, v.name])));
 
     if (before && s.uptime < before.uptime) {
-      await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${s.firmware ? ` (firmware ${s.firmware})` : ''}`, tags: ['arrows_counterclockwise'] });
+      await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${s.firmware ? ` (firmware ${s.firmware})` : ''}` });
     }
     await this.checkTemperature(s.sensors);
     await this.pollFtth(ts);
@@ -142,10 +142,10 @@ export class Collector extends EventEmitter {
     const hot = this.store.getSetting('alerts.hot', false);
     if (!hot && hottest.value >= threshold) {
       this.store.setSetting('alerts.hot', true);
-      await this.alert({ type: 'box_hot', message: `Température élevée dans la Freebox : ${hottest.name} à ${hottest.value} °C. Vérifie l'aération de la box.`, tags: ['fire'], priority: 4, data: { sensor: hottest.id, value: hottest.value } });
+      await this.alert({ type: 'box_hot', message: `Température élevée dans la Freebox : ${hottest.name} à ${hottest.value} °C. Vérifie l'aération de la box.`, priority: 4, data: { sensor: hottest.id, value: hottest.value } });
     } else if (hot && hottest.value < threshold - 5) {
       this.store.setSetting('alerts.hot', false);
-      await this.alert({ type: 'box_cool', message: `Température de la Freebox revenue à la normale (${hottest.value} °C)`, tags: ['white_check_mark'] });
+      await this.alert({ type: 'box_cool', message: `Température de la Freebox revenue à la normale (${hottest.value} °C)` });
     }
   }
 
@@ -208,13 +208,13 @@ export class Collector extends EventEmitter {
 
     for (const d of outcome.newDevices) {
       const where = [d.ipv4[0], d.vendor, d.mac].filter(Boolean).join(' · ');
-      await this.alert({ type: 'new_device', deviceKey: d.key, message: `Nouvel appareil : ${d.name}${where ? ` (${where})` : ''}`, tags: ['new'], priority: 4 });
+      await this.alert({ type: 'new_device', deviceKey: d.key, message: `Nouvel appareil : ${d.name}${where ? ` (${where})` : ''}`, priority: 4 });
     }
     for (const d of outcome.wentDown) {
-      await this.alert({ type: 'device_down', deviceKey: d.key, message: `${d.name} est hors ligne depuis ${settings.offlineMinutes} min`, tags: ['red_circle'], priority: 4 });
+      await this.alert({ type: 'device_down', deviceKey: d.key, message: `${d.name} est hors ligne depuis ${settings.offlineMinutes} min`, priority: 4 });
     }
     for (const d of outcome.cameBack) {
-      await this.alert({ type: 'device_back', deviceKey: d.key, message: `${d.name} est de retour en ligne`, tags: ['green_circle'] });
+      await this.alert({ type: 'device_back', deviceKey: d.key, message: `${d.name} est de retour en ligne` });
     }
     if (cameOnline.length || wentOffline.length || outcome.newDevices.length) {
       this.emit('devices', { cameOnline, wentOffline });
@@ -230,14 +230,15 @@ export class Collector extends EventEmitter {
     }
   }
 
-  /** Inscrit l'événement au journal, prévient l'interface et envoie la notification si ntfy est réglé. */
-  async alert({ type, message, deviceKey = null, data = null, tags = [], priority = 3 }) {
+  /** Inscrit l'événement au journal, prévient l'interface et envoie la notification push aux navigateurs abonnés. */
+  async alert({ type, message, deviceKey = null, data = null, priority = 3 }) {
     const event = this.store.addEvent({ type, message, deviceKey, data });
     this.log.info(`[${type}] ${message}`);
     this.emit('event', event);
     if (!this.notify) return;
     try {
-      await this.notify({ title: 'Freebox Monitor', message, tags, priority });
+      const click = deviceKey ? `/appareils/${encodeURIComponent(deviceKey)}` : '/journal';
+      await this.notify({ title: 'Freebox Monitor', message, priority, click, tag: `event-${event.id}` });
     } catch (e) {
       this.log.warn(`Notification non envoyée : ${e.message}`);
     }

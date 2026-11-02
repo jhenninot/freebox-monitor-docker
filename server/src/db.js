@@ -86,6 +86,17 @@ const MIGRATIONS = [
   );
   CREATE INDEX port_scans_device ON port_scans(device_key, ts);
   `,
+  `
+  -- Navigateurs abonnés aux notifications Web Push (PWA)
+  CREATE TABLE push_subscriptions (
+    endpoint    TEXT PRIMARY KEY,
+    p256dh      TEXT NOT NULL,
+    auth        TEXT NOT NULL,
+    label       TEXT,
+    created_at  INTEGER NOT NULL,
+    last_ok     INTEGER
+  );
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -353,6 +364,32 @@ export class Store {
       id: r.id, ts: r.ts, type: r.type, deviceKey: r.device_key, message: r.message,
       data: r.data ? JSON.parse(r.data) : null,
     }));
+  }
+
+  // --- Abonnements Web Push ---
+
+  savePushSubscription({ endpoint, p256dh, auth, label = null }, ts = now()) {
+    this.db.prepare(`INSERT INTO push_subscriptions (endpoint, p256dh, auth, label, created_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(endpoint) DO UPDATE SET p256dh = excluded.p256dh, auth = excluded.auth, label = excluded.label`)
+      .run(endpoint, p256dh, auth, label, ts);
+  }
+
+  listPushSubscriptions() {
+    return this.db.prepare('SELECT * FROM push_subscriptions ORDER BY created_at').all().map((r) => ({
+      endpoint: r.endpoint, p256dh: r.p256dh, auth: r.auth, label: r.label, createdAt: r.created_at, lastOk: r.last_ok,
+    }));
+  }
+
+  touchPushSubscription(endpoint, ts = now()) {
+    this.db.prepare('UPDATE push_subscriptions SET last_ok = ? WHERE endpoint = ?').run(ts, endpoint);
+  }
+
+  deletePushSubscription(endpoint) {
+    return this.db.prepare('DELETE FROM push_subscriptions WHERE endpoint = ?').run(endpoint).changes > 0;
+  }
+
+  clearPushSubscriptions() {
+    this.db.prepare('DELETE FROM push_subscriptions').run();
   }
 
   /** Copie cohérente de la base (sauvegarde), même pendant l'écriture. */

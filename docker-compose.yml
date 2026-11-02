@@ -1,6 +1,7 @@
 # Freebox Monitor : stack Dockhand.
 # Coller ce fichier dans Dockhand, puis renseigner les variables d'environnement de la stack
-# (APP_SECRET, ADMIN_PASSWORD, et facultativement NTFY_URL / NTFY_TOPIC). Aucun fichier à déposer sur le serveur.
+# (APP_SECRET, ADMIN_PASSWORD). Aucun fichier à déposer sur le serveur.
+# Notifications push : ouvrir l'interface en HTTPS (Nginx Proxy Manager, voir docs/https-npm.md).
 services:
   freebox-monitor:
     image: ghcr.io/jhenninot/freebox-monitor-docker:latest
@@ -14,10 +15,8 @@ services:
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       # Adresse de la Freebox vue depuis le conteneur
       FREEBOX_URL: ${FREEBOX_URL:-http://mafreebox.freebox.fr}
-      # Facultatif : alertes sur le téléphone avec ntfy (https://ntfy.sh ou ton instance)
-      NTFY_URL: ${NTFY_URL:-}
-      NTFY_TOPIC: ${NTFY_TOPIC:-}
-      NTFY_TOKEN: ${NTFY_TOKEN:-}
+      # Facultatif : contact donné aux services de push des navigateurs (mailto:... ou https://...)
+      PUSH_SUBJECT: ${PUSH_SUBJECT:-}
       # Facultatif : adresse de ce serveur vue par la box (notifications de la box), réglable aussi dans l'interface
       PUBLIC_URL: ${PUBLIC_URL:-}
     ports:

@@ -9,6 +9,7 @@ import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
 import { boxNotifRouter } from './routes/boxnotif.js';
 import { networkRouter } from './routes/network.js';
+import { pushRouter } from './routes/push.js';
 import { scanRouter } from './routes/scan.js';
 import { vpnRouter } from './routes/vpn.js';
 import { passwordMatches } from './security.js';
@@ -50,7 +51,7 @@ function loginLimiter() {
   };
 }
 
-export function createApp({ config, store, secrets, freebox, collector, notify, log = console }) {
+export function createApp({ config, store, secrets, freebox, collector, push = null, log = console }) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
@@ -243,7 +244,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
     res.json({
       ...DEFAULT_ALERT_SETTINGS,
       ...store.getSetting('alerts.settings', DEFAULT_ALERT_SETTINGS),
-      ntfy: notify ? { configured: true, url: config.ntfy.url, topic: config.ntfy.topic } : { configured: false },
+      push: { subscriptions: push ? push.count : 0 },
     });
   });
 
@@ -254,11 +255,6 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
     res.json(next);
   });
 
-  api.post('/alerts/test', async (_req, res) => {
-    if (!notify) return res.status(400).json({ error: 'ntfy n\'est pas réglé (variables NTFY_URL et NTFY_TOPIC)' });
-    await notify({ title: 'Freebox Monitor', message: 'Notification de test : les alertes arrivent bien.', tags: ['test_tube'] });
-    res.json({ ok: true });
-  });
 
   // --- Temps réel (Server-Sent Events) ---
 
@@ -289,6 +285,7 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   api.use(networkRouter({ freebox, store, collector }));
   api.use(vpnRouter({ freebox }));
   api.use(boxNotifRouter({ freebox, store, config }));
+  if (push) api.use(pushRouter({ push, store }));
 
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);
@@ -299,7 +296,14 @@ export function createApp({ config, store, secrets, freebox, collector, notify, 
   // --- Interface Vue (application monopage) ---
   const index = path.join(config.webDir, 'index.html');
   if (fs.existsSync(index)) {
-    app.use(express.static(config.webDir, { index: false, maxAge: '1h' }));
+    // Service worker et manifeste toujours revalidés : une nouvelle version est prise en compte tout de suite
+    app.use(express.static(config.webDir, {
+      index: false,
+      maxAge: '1h',
+      setHeaders: (res, file) => {
+        if (/(sw\.js|manifest\.webmanifest)$/.test(file)) res.set('Cache-Control', 'no-cache');
+      },
+    }));
     app.use((req, res, next) => (req.method === 'GET' ? res.sendFile(index) : next()));
   } else {
     log.warn(`Interface absente (${config.webDir}) : seule l'API est servie`);

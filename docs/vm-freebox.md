@@ -60,10 +60,6 @@ cat > .env <<EOF
 APP_SECRET=$(openssl rand -hex 32)
 ADMIN_PASSWORD=choisis-un-mot-de-passe
 FREEBOX_URL=http://mafreebox.freebox.fr
-# Facultatif : alertes ntfy
-NTFY_URL=
-NTFY_TOPIC=
-NTFY_TOKEN=
 EOF
 chmod 600 .env
 ```
@@ -108,11 +104,12 @@ Pour le faire automatiquement chaque nuit : `crontab -e` puis
 
 - **La VM s'arrête avec la box.** Pendant un redémarrage de la Freebox, rien n'est mesuré : l'appli verra
   le redémarrage au retour (durée depuis le démarrage) mais ne pourra pas alerter *pendant* la coupure.
-  Même chose pour une coupure Internet : ntfy n'est joignable qu'une fois la connexion revenue.
+  Pendant une coupure Internet, les notifications push sont gardées et envoyées au retour de la connexion.
   Le serveur Docker sous Proxmox reste un meilleur poste d'observation pour les coupures de courant de la box.
 - **Une seule instance à la fois.** Si l'appli tourne déjà dans Dockhand, l'arrêter (ou ne pas l'associer deux fois)
   pour éviter des alertes en double. Pour garder l'historique, copier la base : `docker compose stop`, puis récupérer
   `/data/freebox-monitor.db` du volume de l'ancienne instance et le déposer dans le volume de la nouvelle, en reprenant **le même `APP_SECRET`** (sinon refaire l'association).
 - **Accès depuis l'extérieur** : comme pour le serveur Docker, rester en local et passer par le VPN de la Freebox.
-  Pour NPM, faire pointer le Proxy Host vers `http://192.168.1.50:8086`.
+  Pour NPM, faire pointer le Proxy Host vers `http://192.168.1.50:8086` : c'est nécessaire pour les notifications push,
+  qui exigent le HTTPS (voir [https-npm.md](https-npm.md)).
 - **Dockhand** peut aussi gérer ce Docker comme un environnement distant, si tu préfères tout piloter au même endroit.

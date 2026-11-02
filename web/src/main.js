@@ -41,3 +41,8 @@ router.afterEach((to) => {
 });
 
 createApp(App).use(router).mount('#app');
+
+// Service worker : appli installable et notifications push (HTTPS ou localhost uniquement)
+if ('serviceWorker' in navigator && window.isSecureContext) {
+  navigator.serviceWorker.register('/sw.js').catch((e) => console.warn('Service worker non enregistré', e));
+}

@@ -8,7 +8,7 @@ const FULL_PORTS = Array.from({ length: MAX_PORT }, (_, i) => i + 1);
 const IDENTIFY_PARALLEL = 8;
 
 export class PortScans extends EventEmitter {
-  /** scanner : { scanPorts, identify } remplaçable dans les tests. alert : envoie une alerte (journal + ntfy). */
+  /** scanner : { scanPorts, identify } remplaçable dans les tests. alert : envoie une alerte (journal + push). */
   constructor({ store, alert = async () => {}, scanner = { scanPorts, identify: identifyPort }, log = console }) {
     super();
     this.store = store;
@@ -65,7 +65,6 @@ export class PortScans extends EventEmitter {
           type: 'port_opened',
           deviceKey: device.key,
           message: `${diff.added.length > 1 ? 'Nouveaux ports ouverts' : 'Nouveau port ouvert'} sur ${device.name} : ${list}`,
-          tags: ['unlock'],
           priority: 4,
           data: { ports: diff.added, ip: device.ipv4 },
         });

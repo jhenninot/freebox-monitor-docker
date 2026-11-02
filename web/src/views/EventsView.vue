@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref, watch } from 'vue';
 import { api } from '../api.js';
+import PushCard from '../components/PushCard.vue';
 import { date, EVENT_LABELS } from '../format.js';
 import { live } from '../live.js';
 
@@ -44,16 +45,6 @@ async function save() {
   }
 }
 
-async function test() {
-  info.value = '';
-  error.value = '';
-  try {
-    await api('/alerts/test', { method: 'POST', body: {} });
-    info.value = 'Notification de test envoyée';
-  } catch (e) {
-    error.value = e.message;
-  }
-}
 </script>
 
 <template>
@@ -77,15 +68,11 @@ async function test() {
         <p class="muted small">Les coupures Internet, changements d'IP publique, redémarrages et surchauffe de la box sont toujours signalés.</p>
         <div class="row">
           <button>Enregistrer</button>
-          <button type="button" class="ghost" :disabled="!settings.ntfy.configured" @click="test">Tester la notification</button>
         </div>
-        <p class="muted small">
-          <template v-if="settings.ntfy.configured">Envoi par ntfy : {{ settings.ntfy.url }}/{{ settings.ntfy.topic }}</template>
-          <template v-else>Notifications désactivées : renseigne NTFY_URL et NTFY_TOPIC dans la stack pour les recevoir sur le téléphone. Les alertes restent dans le journal.</template>
-        </p>
       </form>
       <p v-if="info" class="ok">{{ info }}</p>
     </article>
+    <PushCard v-if="settings" />
     <p v-if="error" class="error">{{ error }}</p>
 
     <article class="card">
