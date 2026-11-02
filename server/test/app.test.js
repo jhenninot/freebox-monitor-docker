@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import { createApp } from '../src/app.js';
+import { Accounts } from '../src/auth.js';
 import { Collector } from '../src/collector.js';
 import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db.js';
@@ -41,7 +42,10 @@ before(async () => {
   const freebox = new FreeboxClient({ baseUrl: config.freeboxUrl, credentials, log: quiet });
   const notify = async (n) => { sent.push(n); };
   collector = new Collector({ freebox, store, config, notify, log: quiet });
-  const app = createApp({ config, store, secrets, freebox, collector, log: quiet });
+  // Migration depuis l'ancien mot de passe unique (trop faible : à changer à la première connexion)
+  const accounts = new Accounts(store);
+  await accounts.bootstrap({ username: config.adminUsername, password: config.adminPassword }, quiet);
+  const app = createApp({ config, store, secrets, freebox, collector, accounts, log: quiet });
   await new Promise((resolve) => { server = app.listen(0, '127.0.0.1', resolve); });
   base = `http://127.0.0.1:${server.address().port}`;
 });
@@ -54,9 +58,23 @@ after(() => {
 
 test('l\'API demande une connexion', async () => {
   assert.equal((await call('GET', '/api/devices')).status, 401);
-  assert.equal((await call('POST', '/api/auth/login', { password: 'faux' })).status, 401);
-  assert.equal((await call('POST', '/api/auth/login', { password: 'motdepasse' })).status, 200);
-  assert.deepEqual((await call('GET', '/api/auth/me')).body, { authenticated: true });
+  assert.equal((await call('GET', '/api/auth/me')).body.setupRequired, false);
+  assert.equal((await call('POST', '/api/auth/login', { username: 'admin', password: 'faux' })).status, 401);
+  assert.equal((await call('POST', '/api/auth/login', { password: 'motdepasse' })).status, 401);
+  const login = await call('POST', '/api/auth/login', { username: 'Admin', password: 'motdepasse' });
+  assert.equal(login.status, 200);
+  assert.equal(login.body.mustChange, true);
+  // Ancien mot de passe trop faible : tout est bloqué tant qu'il n'est pas changé
+  assert.equal((await call('GET', '/api/devices')).body.code, 'password_change_required');
+  assert.equal((await call('POST', '/api/auth/password', { currentPassword: 'motdepasse', newPassword: 'court' })).status, 400);
+  assert.equal((await call('POST', '/api/auth/password', { currentPassword: 'faux', newPassword: 'Nouveau-mot-2026!' })).body.code, 'bad_current_password');
+  const changed = await call('POST', '/api/auth/password', { currentPassword: 'motdepasse', newPassword: 'Nouveau-mot-2026!' });
+  assert.equal(changed.status, 200);
+  assert.equal(changed.body.mustChange, false);
+  assert.equal((await call('GET', '/api/devices')).status, 200);
+  const me = (await call('GET', '/api/auth/me')).body;
+  assert.equal(me.authenticated, true);
+  assert.equal(me.username, 'admin');
 });
 
 test('association, collecte et alertes', async () => {

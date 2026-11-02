@@ -17,7 +17,9 @@ export function loadConfig(env = process.env) {
 
     // Chiffre le jeton Freebox et signe les cookies de session
     appSecret: (env.APP_SECRET || '').trim(),
-    // Mot de passe du compte unique de l'interface
+    // Premier compte de l'interface, créé au démarrage s'il n'existe encore aucun compte (migration douce).
+    // Sans ADMIN_PASSWORD, le premier compte se crée depuis l'interface.
+    adminUsername: (env.ADMIN_USERNAME || 'admin').trim(),
     adminPassword: env.ADMIN_PASSWORD || '',
     // Derrière Nginx Proxy Manager : on fait confiance à X-Forwarded-For / X-Forwarded-Proto
     trustProxy: env.TRUST_PROXY ?? 'loopback, linklocal, uniquelocal',
@@ -54,6 +56,6 @@ export function loadConfig(env = process.env) {
 export function checkConfig(config) {
   const problems = [];
   if (config.appSecret.length < 16) problems.push('APP_SECRET doit faire au moins 16 caractères (par exemple : openssl rand -hex 32)');
-  if (config.adminPassword.length < 8) problems.push('ADMIN_PASSWORD doit faire au moins 8 caractères');
+  if (!/^[a-zA-Z0-9._-]{3,32}$/.test(config.adminUsername)) problems.push('ADMIN_USERNAME : 3 à 32 caractères parmi lettres, chiffres, point, tiret et souligné');
   return problems;
 }

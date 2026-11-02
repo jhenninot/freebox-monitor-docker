@@ -12,7 +12,7 @@ import { networkRouter } from './routes/network.js';
 import { pushRouter } from './routes/push.js';
 import { scanRouter } from './routes/scan.js';
 import { vpnRouter } from './routes/vpn.js';
-import { passwordMatches } from './security.js';
+import { Accounts, ipLimiter, PASSWORD_POLICY, passwordError, usernameError } from './auth.js';
 
 const COOKIE = 'fbm_session';
 const SESSION_DAYS = 30;
@@ -39,19 +39,7 @@ function readCookie(req, name) {
   return null;
 }
 
-/** Limite les essais de mot de passe : 10 par quart d'heure et par adresse IP. */
-function loginLimiter() {
-  const attempts = new Map();
-  return (ip) => {
-    const t = Date.now();
-    const list = (attempts.get(ip) || []).filter((x) => t - x < 15 * 60 * 1000);
-    list.push(t);
-    attempts.set(ip, list);
-    return list.length <= 10;
-  };
-}
-
-export function createApp({ config, store, secrets, freebox, collector, push = null, log = console }) {
+export function createApp({ config, store, secrets, freebox, collector, push = null, accounts = new Accounts(store), log = console }) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
@@ -66,22 +54,20 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
   app.get('/health', (_req, res) => res.json({ ok: true }));
 
   const api = express.Router();
-  const allowLogin = loginLimiter();
+  const allowLogin = ipLimiter();
 
   // --- Connexion à l'interface ---
 
+  /** Compte de la session (cookie signé), ou null si absente, expirée ou fermée par un changement de mot de passe. */
   const sessionOf = (req) => {
     const payload = secrets.verify(readCookie(req, COOKIE));
-    return payload && payload.exp > now() ? payload : null;
+    if (!payload || !(payload.exp > now()) || !Number.isInteger(payload.sub)) return null;
+    const user = accounts.get(payload.sub);
+    return user && user.sessionVersion === payload.v ? user : null;
   };
 
-  api.post('/auth/login', (req, res) => {
-    if (!allowLogin(req.ip)) return res.status(429).json({ error: 'Trop d\'essais, réessaie dans quelques minutes' });
-    if (!passwordMatches(req.body?.password, config.adminPassword)) {
-      log.warn(`Mot de passe refusé depuis ${req.ip}`);
-      return res.status(401).json({ error: 'Mot de passe incorrect' });
-    }
-    const token = secrets.sign({ sub: 'admin', exp: now() + SESSION_DAYS * 86400 });
+  const openSession = (req, res, user) => {
+    const token = secrets.sign({ sub: user.id, v: user.sessionVersion, exp: now() + SESSION_DAYS * 86400 });
     res.cookie(COOKIE, token, {
       httpOnly: true,
       sameSite: 'lax',
@@ -89,7 +75,56 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       maxAge: SESSION_DAYS * 86400 * 1000,
       path: '/',
     });
-    res.json({ ok: true });
+  };
+
+  const me = (user) => ({
+    authenticated: Boolean(user),
+    username: user?.username ?? null,
+    mustChange: user?.mustChange ?? false,
+    setupRequired: !user && accounts.count() === 0,
+    policy: PASSWORD_POLICY,
+  });
+
+  const tooMany = (res, seconds) => {
+    if (seconds) res.set('Retry-After', String(seconds));
+    const minutes = Math.max(1, Math.ceil((seconds || 900) / 60));
+    return res.status(429).json({ error: `Trop d'essais, réessaie dans ${minutes} min`, code: 'too_many_attempts' });
+  };
+
+  const text = (v) => (typeof v === 'string' ? v : '');
+
+  api.get('/auth/me', (req, res) => res.json(me(sessionOf(req))));
+
+  // Création du premier compte, possible seulement tant qu'il n'en existe aucun
+  api.post('/auth/setup', async (req, res) => {
+    if (!allowLogin(req.ip)) return tooMany(res);
+    if (accounts.count() > 0) return res.status(409).json({ error: 'Un compte existe déjà' });
+    const username = text(req.body?.username).trim();
+    const password = text(req.body?.password);
+    const error = usernameError(username) || passwordError(password, username);
+    if (error) return res.status(400).json({ error });
+    let user;
+    try {
+      user = await accounts.create(username, password);
+    } catch {
+      return res.status(409).json({ error: 'Un compte existe déjà' });
+    }
+    log.info?.(`Compte « ${username} » créé depuis ${req.ip}`);
+    openSession(req, res, user);
+    res.json(me(user));
+  });
+
+  api.post('/auth/login', async (req, res) => {
+    if (!allowLogin(req.ip)) return tooMany(res);
+    const result = await accounts.authenticate(text(req.body?.username).trim(), text(req.body?.password));
+    if (result.error === 'locked') return tooMany(res, result.retryAfter);
+    if (!result.user) {
+      log.warn(`Connexion refusée depuis ${req.ip}`);
+      if (result.retryAfter) return tooMany(res, result.retryAfter);
+      return res.status(401).json({ error: 'Identifiant ou mot de passe incorrect' });
+    }
+    openSession(req, res, result.user);
+    res.json(me(result.user));
   });
 
   api.post('/auth/logout', (_req, res) => {
@@ -97,16 +132,39 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
     res.json({ ok: true });
   });
 
-  api.get('/auth/me', (req, res) => res.json({ authenticated: Boolean(sessionOf(req)) }));
+  // Changement de mot de passe : demande l'actuel, ferme les autres sessions et garde celle-ci ouverte
+  api.post('/auth/password', async (req, res) => {
+    const user = sessionOf(req);
+    if (!user) return res.status(401).json({ error: 'Connexion requise' });
+    if (!req.is('application/json')) return res.status(415).json({ error: 'JSON attendu' });
+    if (!allowLogin(req.ip)) return tooMany(res);
+    const current = text(req.body?.currentPassword);
+    const next = text(req.body?.newPassword);
+    const check = await accounts.authenticate(user.username, current);
+    if (check.error === 'locked' || check.retryAfter) return tooMany(res, check.retryAfter);
+    if (!check.user) return res.status(400).json({ error: 'Mot de passe actuel incorrect', code: 'bad_current_password' });
+    const error = passwordError(next, user.username);
+    if (error) return res.status(400).json({ error });
+    if (next === current) return res.status(400).json({ error: 'Le nouveau mot de passe doit être différent de l\'actuel' });
+    const updated = await accounts.setPassword(user.id, next);
+    log.info?.(`Mot de passe du compte « ${user.username} » changé`);
+    openSession(req, res, updated);
+    res.json(me(updated));
+  });
 
   // Tout ce qui suit demande d'être connecté
   api.use((req, res, next) => {
-    if (!sessionOf(req)) return res.status(401).json({ error: 'Connexion requise' });
+    const user = sessionOf(req);
+    if (!user) return res.status(401).json({ error: 'Connexion requise' });
+    if (user.mustChange) {
+      return res.status(403).json({ error: 'Change ton mot de passe pour continuer', code: 'password_change_required' });
+    }
     // Protection CSRF : les requêtes qui modifient viennent forcément de notre interface (JSON)
     // (un formulaire d'un autre site ne peut envoyer ni JSON ni DELETE sans autorisation CORS)
     if (['POST', 'PUT', 'PATCH'].includes(req.method) && !req.is('application/json')) {
       return res.status(415).json({ error: 'JSON attendu' });
     }
+    req.user = user;
     next();
   });
 

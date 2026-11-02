@@ -58,7 +58,8 @@ Créer le fichier `.env` à côté (il remplace les variables de stack de Dockha
 ```bash
 cat > .env <<EOF
 APP_SECRET=$(openssl rand -hex 32)
-ADMIN_PASSWORD=choisis-un-mot-de-passe
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD='Choisis-un-mot-de-passe-2026!'
 FREEBOX_URL=http://mafreebox.freebox.fr
 EOF
 chmod 600 .env
@@ -81,7 +82,9 @@ docker compose logs -f     # attendre « Freebox Monitor … prêt sur le port 8
 
 ## 5. Associer l'appli à la Freebox
 
-1. Ouvrir `http://192.168.1.50:8086` et se connecter avec `ADMIN_PASSWORD`.
+1. Ouvrir `http://192.168.1.50:8086` et se connecter avec `admin` et `ADMIN_PASSWORD` (12 caractères minimum, minuscule,
+   majuscule, chiffre et caractère spécial, sinon il faudra le changer à la connexion). Ensuite le mot de passe est gardé
+   haché dans la base et se change dans **Mon compte** : `ADMIN_PASSWORD` peut être retiré du `.env`.
 2. Cliquer sur **Associer** et valider avec la flèche droite sur l'écran du Freebox Server.
 3. Pour pouvoir renommer des appareils : Freebox OS > *Paramètres de la Freebox > Gestion des accès > Applications*,
    éditer « Freebox Monitor (serveur) » et cocher **Modification des réglages de la Freebox**.

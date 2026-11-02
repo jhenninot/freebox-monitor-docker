@@ -1,7 +1,17 @@
 // Appels à l'API du serveur. Une réponse 401 renvoie à l'écran de connexion.
 import { reactive } from 'vue';
 
-export const session = reactive({ authenticated: null });
+// État de la connexion, rempli par /auth/me, /auth/login, /auth/setup et /auth/password
+export const session = reactive({ authenticated: null, username: null, mustChange: false, setupRequired: false });
+
+export function setSession(me) {
+  Object.assign(session, {
+    authenticated: Boolean(me?.authenticated),
+    username: me?.username ?? null,
+    mustChange: Boolean(me?.mustChange),
+    setupRequired: Boolean(me?.setupRequired),
+  });
+}
 
 export class ApiError extends Error {
   constructor(message, status, code) {
@@ -25,6 +35,7 @@ export async function api(path, { method = 'GET', body } = {}) {
     // réponse vide
   }
   if (res.status === 401 && !path.startsWith('/auth/')) session.authenticated = false;
+  if (res.status === 403 && data?.code === 'password_change_required') session.mustChange = true;
   if (!res.ok) throw new ApiError(data?.error || `Erreur HTTP ${res.status}`, res.status, data?.code);
   return data;
 }

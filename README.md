@@ -81,13 +81,14 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
    | Variable | Valeur |
    | --- | --- |
    | `APP_SECRET` | le secret de l'étape 1 |
-   | `ADMIN_PASSWORD` | le mot de passe de l'interface (8 caractères minimum) |
+   | `ADMIN_USERNAME` | facultatif, identifiant du premier compte (`admin` par défaut) |
+   | `ADMIN_PASSWORD` | facultatif, mot de passe du premier compte, utilisé une seule fois (voir [Comptes](#comptes-et-mots-de-passe)) |
    | `FREEBOX_URL` | facultatif, `http://mafreebox.freebox.fr` par défaut (ou `http://192.168.1.254`) |
    | `PUBLIC_URL` | facultatif, adresse de ce serveur vue par la box pour ses notifications (ex. `http://192.168.1.20:8086`), modifiable dans l'interface |
    | `PUSH_SUBJECT` | facultatif, contact donné aux services de push (`mailto:toi@exemple.fr`), l'adresse du dépôt par défaut |
 
 4. Démarrer la stack : les logs affichent « Freebox Monitor … prêt sur le port 8080 ».
-5. Ouvrir `http://<serveur-docker>:8086`, se connecter, cliquer sur **Associer** et valider sur l'écran du Freebox Server.
+5. Ouvrir `http://<serveur-docker>:8086`, se connecter (ou créer le compte si `ADMIN_PASSWORD` est vide), cliquer sur **Associer** et valider sur l'écran du Freebox Server.
 6. Pour pouvoir **renommer** des appareils : dans Freebox OS, *Paramètres de la Freebox > Gestion des accès > Applications*,
    éditer « Freebox Monitor (serveur) » et cocher **Modification des réglages de la Freebox**.
 
@@ -104,6 +105,24 @@ Les notifications push et l'installation de l'appli demandent une adresse en **H
 [docs/https-npm.md](docs/https-npm.md) (Proxy Host vers `http://<serveur>:8086`, certificat Let's Encrypt, Access List
 limitée au réseau local et au VPN). L'appli peut modifier la box : ne pas l'ouvrir à tout Internet.
 Le flux temps réel (Server-Sent Events) désactive lui-même la mise en tampon de Nginx.
+
+### Comptes et mots de passe
+
+On se connecte avec un **identifiant** et un **mot de passe**, gardé haché en base (scrypt, avec sel).
+Règles : 12 caractères minimum, avec au moins une minuscule, une majuscule, un chiffre et un caractère spécial,
+et sans contenir l'identifiant. Le mot de passe se change dans **Mon compte** (clic sur l'identifiant en haut à droite) :
+les autres appareils connectés sont alors déconnectés.
+
+- **Premier compte** : s'il n'existe encore aucun compte, le serveur crée au démarrage le compte `ADMIN_USERNAME`
+  (`admin` par défaut) avec le mot de passe `ADMIN_PASSWORD`. Si ce mot de passe ne respecte pas les règles, il faut le
+  changer à la première connexion. Ensuite `ADMIN_PASSWORD` ne sert plus : on peut le retirer des variables de la stack.
+  Sans `ADMIN_PASSWORD`, l'interface propose de créer le premier compte (à faire tout de suite après l'installation).
+- **Mise à jour depuis l'ancienne version** (mot de passe seul) : se connecter avec l'identifiant `admin` et l'ancien
+  mot de passe, puis en choisir un nouveau si demandé. Les anciennes sessions sont fermées par la mise à jour.
+- **Essais limités** : 10 essais par quart d'heure et par adresse IP ; après 5 échecs de suite sur un compte, il est
+  bloqué 1 min, puis 2, 4... jusqu'à 15 min.
+- **Mot de passe oublié** : `docker exec -it freebox-monitor node src/cli.js reinitialiser admin` affiche un mot de passe
+  provisoire, à changer à la connexion suivante (`node src/cli.js comptes` liste les comptes).
 
 ### Sauvegardes
 
@@ -129,7 +148,7 @@ Node 22.13 ou plus récent (la base utilise le module `node:sqlite` intégré à
 cd server && npm install
 npm test                       # tests (avec une fausse Freebox)
 npm run fake-freebox           # fausse Freebox sur le port 8090, pour essayer sans box
-APP_SECRET=dev-secret-assez-long ADMIN_PASSWORD=motdepasse FREEBOX_URL=http://127.0.0.1:8090 \
+APP_SECRET=dev-secret-assez-long ADMIN_PASSWORD='Motdepasse-2026!' FREEBOX_URL=http://127.0.0.1:8090 \
   DATA_DIR=./data npm run dev  # API sur http://localhost:8080
 
 # Interface (autre terminal)
@@ -147,6 +166,8 @@ récupérant la nouvelle image.
 server/src/
 ├── index.js          démarrage, chiffrement du jeton, sauvegarde quotidienne
 ├── config.js         variables d'environnement
+├── auth.js           comptes : hachage scrypt, règles du mot de passe, essais limités, premier compte
+├── cli.js            réinitialisation d'un mot de passe en ligne de commande
 ├── app.js            API REST + flux temps réel (SSE) + fichiers de l'interface
 ├── collector.js      collecte périodique, journal, envoi des alertes
 ├── alerts.js         règles des alertes (traduites de l'appli Android)
@@ -155,7 +176,7 @@ server/src/
 ├── security.js       HMAC Freebox, AES-GCM, cookies signés
 └── freebox/          client de l'API Freebox OS (association, session) et conversions
 web/src/
-├── views/            Accueil, Appareils, fiche appareil, Journal, Association, Connexion
+├── views/            Accueil, Appareils, fiche appareil, Journal, Association, Connexion, Mon compte
 ├── components/       courbe des débits (Chart.js), carte des notifications push
 ├── push.js           abonnement de ce navigateur aux notifications
 └── api.js, live.js   appels à l'API et état temps réel

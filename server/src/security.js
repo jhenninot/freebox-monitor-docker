@@ -1,4 +1,4 @@
-// Chiffrement du jeton Freebox, mot de passe de l'interface et cookies de session signés
+// Chiffrement du jeton Freebox et cookies de session signés
 import crypto from 'node:crypto';
 
 /** Signature demandée par la Freebox à l'ouverture de session : HMAC-SHA1(app_token, challenge) en hexadécimal. */
@@ -53,11 +53,4 @@ export class Secrets {
       return null;
     }
   }
-}
-
-/** Compare un mot de passe saisi au mot de passe attendu, en temps constant. */
-export function passwordMatches(given, expected) {
-  const a = crypto.createHash('sha256').update(String(given ?? '')).digest();
-  const b = crypto.createHash('sha256').update(String(expected ?? '')).digest();
-  return crypto.timingSafeEqual(a, b) && String(expected).length > 0;
 }

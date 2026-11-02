@@ -1,5 +1,6 @@
 // Monte le serveur complet devant une fausse Freebox, déjà associé et connecté à l'interface
 import { createApp } from '../src/app.js';
+import { Accounts } from '../src/auth.js';
 import { Collector } from '../src/collector.js';
 import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db.js';
@@ -12,7 +13,7 @@ const quiet = { info() {}, warn() {}, error() {} };
 
 export async function startHarness() {
   const box = await startFakeFreebox();
-  const config = loadConfig({ APP_SECRET: 'secret-de-test-assez-long', ADMIN_PASSWORD: 'motdepasse', FREEBOX_URL: box.url, WEB_DIR: '/inexistant' });
+  const config = loadConfig({ APP_SECRET: 'secret-de-test-assez-long', FREEBOX_URL: box.url, WEB_DIR: '/inexistant' });
   const store = openDatabase(':memory:');
   const secrets = new Secrets(config.appSecret);
   const credentials = {
@@ -33,7 +34,9 @@ export async function startHarness() {
     return new Response(null, { status: url.includes('expire') ? 410 : 201 });
   };
   const push = new WebPush({ store, secrets, subject: config.pushSubject, fetchImpl: pushFetch, log: quiet });
-  const app = createApp({ config, store, secrets, freebox, collector, push, log: quiet });
+  const accounts = new Accounts(store);
+  await accounts.create('julien', 'Motdepasse-2026!');
+  const app = createApp({ config, store, secrets, freebox, collector, push, accounts, log: quiet });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = '';
@@ -49,7 +52,7 @@ export async function startHarness() {
     const text = await res.text();
     return { status: res.status, body: text ? JSON.parse(text) : null };
   }
-  await call('POST', '/api/auth/login', { password: 'motdepasse' });
+  await call('POST', '/api/auth/login', { username: 'julien', password: 'Motdepasse-2026!' });
 
   return {
     box, store, collector, freebox, sent, call, push, pushed,

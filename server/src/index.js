@@ -2,6 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createApp } from './app.js';
+import { Accounts } from './auth.js';
 import { Collector } from './collector.js';
 import { checkConfig, loadConfig } from './config.js';
 import { openDatabase } from './db.js';
@@ -19,6 +20,15 @@ if (problems.length) {
 
 const store = openDatabase(config.dbFile);
 const secrets = new Secrets(config.appSecret);
+
+// Comptes de l'interface : au premier démarrage de cette version, ADMIN_PASSWORD devient le compte ADMIN_USERNAME
+const accounts = new Accounts(store);
+await accounts.bootstrap({ username: config.adminUsername, password: config.adminPassword });
+if (accounts.count() === 0) {
+  console.warn('Aucun compte : le premier compte se crée depuis l\'interface (ou définir ADMIN_PASSWORD)');
+} else if (config.adminPassword) {
+  console.log('ADMIN_PASSWORD ne sert plus qu\'à créer le premier compte : il peut être retiré de la configuration');
+}
 
 // Le jeton d'application Freebox est gardé chiffré dans la base
 const credentials = {
@@ -43,7 +53,7 @@ const freebox = new FreeboxClient({ baseUrl: config.freeboxUrl, credentials, app
 const push = new WebPush({ store, secrets, subject: config.pushSubject });
 const notify = (notification) => push.send(notification);
 const collector = new Collector({ freebox, store, config, notify });
-const app = createApp({ config, store, secrets, freebox, collector, push });
+const app = createApp({ config, store, secrets, freebox, collector, push, accounts });
 
 // Sauvegarde quotidienne de la base dans le volume (/data/backup/freebox-monitor-<jour>.db, 7 jours gardés)
 function backup() {

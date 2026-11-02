@@ -97,6 +97,21 @@ const MIGRATIONS = [
     last_ok     INTEGER
   );
   `,
+  `
+  -- Comptes de l'interface. password_hash : scrypt (voir auth.js). session_version invalide les anciennes sessions.
+  CREATE TABLE users (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    username            TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    password_hash       TEXT NOT NULL,
+    must_change         INTEGER NOT NULL DEFAULT 0,
+    session_version     INTEGER NOT NULL DEFAULT 1,
+    failed_attempts     INTEGER NOT NULL DEFAULT 0,
+    locked_until        INTEGER NOT NULL DEFAULT 0,
+    created_at          INTEGER NOT NULL,
+    password_changed_at INTEGER NOT NULL,
+    last_login_at       INTEGER
+  );
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);

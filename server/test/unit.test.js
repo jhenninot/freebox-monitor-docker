@@ -4,7 +4,7 @@ import { cleanAlertSettings, DEFAULT_ALERT_SETTINGS, evaluateAlerts } from '../s
 import { openDatabase } from '../src/db.js';
 import { apiMajorOf } from '../src/freebox/client.js';
 import { toDevice, toSystem } from '../src/freebox/mappers.js';
-import { hmacSha1Hex, passwordMatches, Secrets } from '../src/security.js';
+import { hmacSha1Hex, Secrets } from '../src/security.js';
 import { host } from './fake-freebox.js';
 
 const dev = (key, online, lastSeen = 0) => ({ key, name: key, online, lastSeen, ipv4: [] });
@@ -29,9 +29,6 @@ test('chiffrement et signature', () => {
   assert.deepEqual(s.verify(token), { sub: 'admin', exp: 1 });
   assert.equal(s.verify(`${token}x`), null);
   assert.equal(s.verify('nimporte.quoi'), null);
-  assert.ok(passwordMatches('motdepasse', 'motdepasse'));
-  assert.ok(!passwordMatches('autre', 'motdepasse'));
-  assert.ok(!passwordMatches('', ''));
 });
 
 test('conversion d\'un appareil Freebox', () => {

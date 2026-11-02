@@ -2,6 +2,7 @@ import { createApp } from 'vue';
 import { createRouter, createWebHistory } from 'vue-router';
 import App from './App.vue';
 import './style.css';
+import AccountView from './views/AccountView.vue';
 import DeviceView from './views/DeviceView.vue';
 import DevicesView from './views/DevicesView.vue';
 import EventsView from './views/EventsView.vue';
@@ -31,6 +32,7 @@ const router = createRouter({
     { path: '/reseau/filtrage-wifi', component: WifiFilterView, meta: { title: 'Filtrage Wi-Fi' } },
     { path: '/journal', component: EventsView, meta: { title: 'Journal et alertes' } },
     { path: '/association', component: PairingView, meta: { title: 'Association' } },
+    { path: '/compte', component: AccountView, meta: { title: 'Mon compte' } },
     { path: '/connexion', component: LoginView, meta: { title: 'Connexion', public: true } },
     { path: '/:pathMatch(.*)*', redirect: '/' },
   ],

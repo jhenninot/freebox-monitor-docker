@@ -1,6 +1,6 @@
 # Freebox Monitor : stack Dockhand.
 # Coller ce fichier dans Dockhand, puis renseigner les variables d'environnement de la stack
-# (APP_SECRET, ADMIN_PASSWORD). Aucun fichier à déposer sur le serveur.
+# (APP_SECRET, et ADMIN_PASSWORD au premier démarrage). Aucun fichier à déposer sur le serveur.
 # Notifications push : ouvrir l'interface en HTTPS (Nginx Proxy Manager, voir docs/https-npm.md).
 services:
   freebox-monitor:
@@ -11,8 +11,11 @@ services:
       TZ: Europe/Paris
       # Chiffre le jeton Freebox et signe les sessions (openssl rand -hex 32). Ne plus le changer ensuite.
       APP_SECRET: ${APP_SECRET}
-      # Mot de passe de l'interface (8 caractères minimum)
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Facultatif : premier compte de l'interface, créé au premier démarrage s'il n'en existe aucun.
+      # Ensuite les comptes sont en base (mot de passe haché) et ces variables peuvent être retirées.
+      # Sans elles, le premier compte se crée depuis l'interface.
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # Adresse de la Freebox vue depuis le conteneur
       FREEBOX_URL: ${FREEBOX_URL:-http://mafreebox.freebox.fr}
       # Facultatif : contact donné aux services de push des navigateurs (mailto:... ou https://...)
