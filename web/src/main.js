@@ -5,6 +5,7 @@ import './style.css';
 import AccountView from './views/AccountView.vue';
 import DeviceView from './views/DeviceView.vue';
 import DevicesView from './views/DevicesView.vue';
+import EquipmentView from './views/EquipmentView.vue';
 import EventsView from './views/EventsView.vue';
 import HomeView from './views/HomeView.vue';
 import LoginView from './views/LoginView.vue';
@@ -23,6 +24,7 @@ const router = createRouter({
     { path: '/', component: HomeView, meta: { title: 'Accueil' } },
     { path: '/appareils', component: DevicesView, meta: { title: 'Appareils' } },
     { path: '/appareils/:key', component: DeviceView, props: (r) => ({ deviceKey: r.params.key }), meta: { title: 'Appareil' } },
+    { path: '/equipements', component: EquipmentView, meta: { title: 'Équipements Free' } },
     { path: '/reseau', component: NetworkView, meta: { title: 'Réseau' } },
     { path: '/reseau/ip-fixes', component: DhcpView, meta: { title: 'IP fixes' } },
     { path: '/reseau/redirections', component: PortForwardView, meta: { title: 'Redirections de ports' } },

@@ -37,8 +37,9 @@ async function save() {
   info.value = '';
   error.value = '';
   try {
-    const { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour } = settings.value;
-    Object.assign(settings.value, await api('/alerts/settings', { method: 'PUT', body: { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour } }));
+    const { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, repeaters } = settings.value;
+    const body = { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, repeaters };
+    Object.assign(settings.value, await api('/alerts/settings', { method: 'PUT', body }));
     info.value = 'Réglages enregistrés';
   } catch (e) {
     error.value = e.message;
@@ -65,6 +66,8 @@ async function save() {
             <option v-for="h in 24" :key="h - 1" :value="h - 1">{{ h - 1 }} h</option>
           </select>
         </label>
+        <label class="check"><input v-model="settings.repeaters" type="checkbox"> Répéteur Wi-Fi déconnecté de la box (même délai), redémarré, en échec de mise à jour</label>
+        <label class="check"><input v-model="settings.firmware" type="checkbox"> Notification quand le firmware de la box ou d'un répéteur est mis à jour (toujours inscrit au journal)</label>
         <p class="muted small">Les coupures Internet, changements d'IP publique, redémarrages et surchauffe de la box sont toujours signalés.</p>
         <div class="row">
           <button>Enregistrer</button>

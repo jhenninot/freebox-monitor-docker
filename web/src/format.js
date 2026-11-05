@@ -60,6 +60,13 @@ export const EVENT_LABELS = {
   box_cool: 'Température normale',
   port_opened: 'Port ouvert',
   box_notif: 'Notification box',
+  box_reboot_request: 'Redémarrage demandé',
+  firmware_update: 'Firmware',
+  repeater_down: 'Répéteur déconnecté',
+  repeater_back: 'Répéteur reconnecté',
+  repeater_failure: 'Répéteur en échec',
+  repeater_reboot: 'Redémarrage répéteur',
+  repeater_reboot_request: 'Redémarrage demandé',
 };
 
 export const HOST_TYPES = {

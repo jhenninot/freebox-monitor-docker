@@ -112,6 +112,18 @@ const MIGRATIONS = [
     last_login_at       INTEGER
   );
   `,
+  `
+  -- Versions de firmware vues : equipment = 'box' ou 'repeater:<n° de série>'. previous NULL : première version connue
+  CREATE TABLE firmware_history (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    equipment   TEXT NOT NULL,
+    name        TEXT NOT NULL,
+    version     TEXT NOT NULL,
+    previous    TEXT,
+    ts          INTEGER NOT NULL
+  );
+  CREATE INDEX firmware_history_equipment ON firmware_history(equipment, ts);
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -379,6 +391,30 @@ export class Store {
       id: r.id, ts: r.ts, type: r.type, deviceKey: r.device_key, message: r.message,
       data: r.data ? JSON.parse(r.data) : null,
     }));
+  }
+
+  // --- Versions de firmware ---
+
+  /**
+   * Note la version vue pour un équipement. Renvoie l'entrée ajoutée si elle a changé
+   * (previous null si c'est la première version connue), sinon null.
+   */
+  recordFirmware(equipment, name, version, ts = now()) {
+    if (!version) return null;
+    const last = this.db.prepare('SELECT version FROM firmware_history WHERE equipment = ? ORDER BY id DESC LIMIT 1').get(equipment);
+    if (last?.version === version) return null;
+    const previous = last?.version ?? null;
+    const info = this.db.prepare('INSERT INTO firmware_history (equipment, name, version, previous, ts) VALUES (?, ?, ?, ?, ?)')
+      .run(equipment, name, version, previous, ts);
+    return { id: Number(info.lastInsertRowid), equipment, name, version, previous, ts };
+  }
+
+  /** Historique des versions, du plus récent au plus ancien (toutes les machines si equipment est null). */
+  listFirmware(equipment = null, limit = 50) {
+    const rows = equipment
+      ? this.db.prepare('SELECT * FROM firmware_history WHERE equipment = ? ORDER BY id DESC LIMIT ?').all(equipment, limit)
+      : this.db.prepare('SELECT * FROM firmware_history ORDER BY id DESC LIMIT ?').all(limit);
+    return rows.map((r) => ({ id: r.id, equipment: r.equipment, name: r.name, version: r.version, previous: r.previous, ts: r.ts }));
   }
 
   // --- Abonnements Web Push ---

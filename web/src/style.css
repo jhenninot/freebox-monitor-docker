@@ -115,8 +115,8 @@ dd { margin: 0; font-variant-numeric: tabular-nums; }
 .events li:first-child { border-top: 0; }
 .tag { font-size: 0.75rem; padding: 0.1rem 0.5rem; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); justify-self: start; }
 .tag.new_device, .tag.device_down, .tag.wan_down { border-color: var(--bad); color: var(--bad); }
-.tag.box_hot, .tag.port_opened { border-color: var(--bad); color: var(--bad); }
-.tag.device_back, .tag.wan_up, .tag.box_cool { border-color: var(--ok); color: var(--ok); }
+.tag.box_hot, .tag.port_opened, .tag.repeater_down, .tag.repeater_failure { border-color: var(--bad); color: var(--bad); }
+.tag.device_back, .tag.wan_up, .tag.box_cool, .tag.repeater_back { border-color: var(--ok); color: var(--ok); }
 
 .toolbar { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
 .toolbar input { flex: 1; min-width: 200px; }
@@ -141,7 +141,8 @@ th { color: var(--muted); font-weight: 500; }
   .device > :nth-child(3), .device > :nth-child(4), .device > :nth-child(5) { display: none; }
   .device .sub { display: block; }
   .events li { grid-template-columns: 1fr; gap: 0.2rem; }
-  .topbar nav { order: 3; width: 100%; }
+  .topbar nav { order: 3; width: 100%; flex-wrap: wrap; gap: 0.1rem; }
+  .topbar nav a { padding: 0.35rem 0.45rem; white-space: nowrap; }
 }
 
 .suffixed { display: flex; align-items: center; gap: 0.25rem; flex: 1; min-width: 200px; }

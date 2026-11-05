@@ -133,6 +133,6 @@ test('association, collecte et alertes', async () => {
 
 test('réglages des alertes', async () => {
   const saved = (await call('PUT', '/api/alerts/settings', { offlineMinutes: 5, newDevices: false })).body;
-  assert.deepEqual(saved, { newDevices: false, offline: true, offlineMinutes: 5, nightlyScan: true, nightlyScanHour: 3 });
+  assert.deepEqual(saved, { newDevices: false, offline: true, offlineMinutes: 5, nightlyScan: true, nightlyScanHour: 3, firmware: true, repeaters: true });
   assert.equal((await call('GET', '/api/alerts/settings')).body.offlineMinutes, 5);
 });

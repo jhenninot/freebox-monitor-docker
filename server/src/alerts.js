@@ -9,6 +9,10 @@ export const DEFAULT_ALERT_SETTINGS = {
   // Scan de ports de nuit des appareils surveillés : alerte si un port s'ouvre
   nightlyScan: true,
   nightlyScanHour: 3,
+  // Firmware de la box ou d'un répéteur mis à jour : notification push (toujours inscrit au journal)
+  firmware: true,
+  // Répéteur Wi-Fi déconnecté de la box (même délai que les appareils), échec de mise à jour ou de redémarrage
+  repeaters: true,
 };
 
 /** Normalise des réglages reçus de l'interface. */
@@ -21,6 +25,8 @@ export function cleanAlertSettings(input = {}, current = DEFAULT_ALERT_SETTINGS)
     nightlyScanHour: Number.isFinite(hour) && hour >= 0 && hour <= 23 ? hour : (current.nightlyScanHour ?? defaults.nightlyScanHour),
     newDevices: typeof input.newDevices === 'boolean' ? input.newDevices : current.newDevices,
     offline: typeof input.offline === 'boolean' ? input.offline : current.offline,
+    firmware: typeof input.firmware === 'boolean' ? input.firmware : (current.firmware ?? defaults.firmware),
+    repeaters: typeof input.repeaters === 'boolean' ? input.repeaters : (current.repeaters ?? defaults.repeaters),
     offlineMinutes: Number.isFinite(minutes) ? Math.min(Math.max(minutes, 1), 24 * 60) : current.offlineMinutes,
   };
 }

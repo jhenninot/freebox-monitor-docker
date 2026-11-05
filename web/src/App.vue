@@ -63,6 +63,7 @@ async function logout() {
       <nav v-if="paired && !session.mustChange">
         <RouterLink to="/">Accueil</RouterLink>
         <RouterLink to="/appareils">Appareils</RouterLink>
+        <RouterLink to="/equipements" title="Équipements Free : Freebox Server et répéteurs Wi-Fi">Équipements</RouterLink>
         <RouterLink to="/reseau">Réseau</RouterLink>
         <RouterLink to="/journal">Journal</RouterLink>
       </nav>

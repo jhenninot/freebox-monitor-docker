@@ -1,8 +1,9 @@
 // Collecte périodique : interroge la Freebox, enregistre l'historique et déclenche les alertes.
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
-import { repeaterLinks, toConnection, toDevice, toFtth, toSystem } from './freebox/mappers.js';
+import { repeaterLinks, toConnection, toDevice, toFtth, toRepeater, toSystem } from './freebox/mappers.js';
 import { deviceTraffic, repeaterStations } from './freebox/traffic.js';
+import { duration, evaluateRepeaters } from './repeaters.js';
 import { PortScans } from './scan/scans.js';
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -27,6 +28,8 @@ export class Collector extends EventEmitter {
     // Trafic par appareil (stations Wi-Fi + prises Ethernet) et état du module fibre
     this.traffic = null;
     this.ftth = null;
+    // Répéteurs Wi-Fi : { ts, items } (null tant qu'ils n'ont pas été lus ou si la box ne les gère pas)
+    this.repeaters = null;
     // Scans de ports (à la demande et chaque nuit sur les appareils surveillés)
     this.scans = new PortScans({ store, alert: (a) => this.alert(a), log, ...(scanner ? { scanner } : {}) });
     this.scans.on('progress', (p) => this.emit('scan', p));
@@ -125,13 +128,69 @@ export class Collector extends EventEmitter {
     this.store.addMetrics(values, ts);
     this.store.setSetting('system.labels', Object.fromEntries([...s.sensors, ...s.fans].map((v) => [v.id, v.name])));
 
-    if (before && s.uptime < before.uptime) {
-      await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${s.firmware ? ` (firmware ${s.firmware})` : ''}` });
-    }
+    await this.checkBoxReboot(s, ts);
+    const update = this.store.recordFirmware('box', s.model || 'Freebox', s.firmware, ts);
+    if (update?.previous) await this.firmwareAlert(update, 'Firmware de la Freebox');
     await this.checkTemperature(s.sensors);
     await this.pollFtth(ts);
     this.system.ftth = this.ftth;
     this.emit('system', this.system);
+  }
+
+  /**
+   * Redémarrage de la box : l'heure de démarrage (maintenant - uptime) est gardée en base, pour le voir aussi quand
+   * ce serveur a été arrêté en même temps (VM de la Freebox). Si il avait été demandé depuis l'interface, on le dit.
+   */
+  async checkBoxReboot(s, ts) {
+    if (!s.uptime) return;
+    const boot = ts - s.uptime;
+    const before = this.store.getSetting('system.bootTs', null);
+    this.store.setSetting('system.bootTs', boot);
+    if (!before || boot <= before + 120) return;
+    const request = this.store.getSetting('box.rebootRequest', null);
+    this.store.setSetting('box.rebootRequest', null);
+    const firmware = s.firmware ? ` (firmware ${s.firmware})` : '';
+    if (request && request.ts >= before && ts - request.ts < 3600) {
+      await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré à la demande de ${request.by}, de retour après ${duration(ts - request.ts)}${firmware}` });
+    } else {
+      await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${firmware}` });
+    }
+  }
+
+  /** Nouvelle version de firmware : toujours au journal, en push si le réglage « firmware » est coché. */
+  async firmwareAlert(update, label) {
+    const settings = { ...DEFAULT_ALERT_SETTINGS, ...this.store.getSetting('alerts.settings', {}) };
+    await this.alert({
+      type: 'firmware_update',
+      message: `${label} mis à jour : ${update.previous} → ${update.version}`,
+      data: { equipment: update.equipment, before: update.previous, after: update.version },
+      push: settings.firmware,
+    });
+  }
+
+  /** Répéteurs lus sur la box : état servi à l'interface, versions de firmware et alertes (voir repeaters.js). */
+  async updateRepeaters(withHosts, ts = now()) {
+    const items = withHosts.map(({ repeater, hosts }) => ({
+      ...toRepeater(repeater),
+      clients: (Array.isArray(hosts) ? hosts : []).filter((h) => h?.active !== false && h?.reachable !== false).length,
+    }));
+    this.repeaters = { ts, items };
+    // Évaluation et mémoire mises à jour d'un bloc, avant tout await : pas de double alerte si deux collectes se croisent
+    const settings = { ...DEFAULT_ALERT_SETTINGS, ...this.store.getSetting('alerts.settings', {}) };
+    const outcome = evaluateRepeaters(items, {
+      memory: this.store.getSetting('repeaters.memory', {}),
+      requests: this.store.getSetting('repeaters.rebootRequests', {}),
+      settings,
+      now: ts,
+    });
+    this.store.setSetting('repeaters.memory', outcome.memory);
+    this.store.setSetting('repeaters.rebootRequests', outcome.requests);
+    const updates = items
+      .map((r) => ({ r, update: this.store.recordFirmware(`repeater:${r.key}`, r.name, r.firmware, ts) }))
+      .filter((u) => u.update?.previous);
+    this.emit('repeaters', this.repeaters);
+    for (const a of outcome.alerts) await this.alert(a);
+    for (const { r, update } of updates) await this.firmwareAlert(update, `Firmware de ${r.name}`);
   }
 
   /** Alerte une fois au-delà du seuil, puis une fois revenu 5 °C en dessous (pas d'alerte en rafale). */
@@ -234,19 +293,24 @@ export class Collector extends EventEmitter {
   /** Répéteurs Wi-Fi et leurs clients ; null si la box ne les gère pas ou ne répond pas. */
   async fetchRepeaterHosts() {
     if (this.repeatersSupported === false) return null;
+    const withHosts = [];
     try {
       const repeaters = await this.freebox.get('repeater/');
-      const withHosts = [];
       for (const repeater of Array.isArray(repeaters) ? repeaters : []) {
         withHosts.push({ repeater, hosts: await this.freebox.get(`repeater/${repeater.id}/host/`).catch(() => []) });
       }
       this.repeatersSupported = true;
-      return withHosts;
     } catch (e) {
       // Box sans gestion des répéteurs (ancienne API) : on n'insiste pas
       if (e.status === 404 || e.code === 'invalid_api_version' || e.code === 'nodev') this.repeatersSupported = false;
       return null;
     }
+    try {
+      await this.updateRepeaters(withHosts);
+    } catch (e) {
+      this.log.warn(`Suivi des répéteurs : ${e.message}`);
+    }
+    return withHosts;
   }
 
   async applyRepeaters(devices) {
@@ -275,11 +339,11 @@ export class Collector extends EventEmitter {
   }
 
   /** Inscrit l'événement au journal, prévient l'interface et envoie la notification push aux navigateurs abonnés. */
-  async alert({ type, message, deviceKey = null, data = null, priority = 3 }) {
+  async alert({ type, message, deviceKey = null, data = null, priority = 3, push = true }) {
     const event = this.store.addEvent({ type, message, deviceKey, data });
     this.log.info(`[${type}] ${message}`);
     this.emit('event', event);
-    if (!this.notify) return;
+    if (!this.notify || !push) return;
     try {
       const click = deviceKey ? `/appareils/${encodeURIComponent(deviceKey)}` : '/journal';
       await this.notify({ title: 'Freebox Monitor', message, priority, click, tag: `event-${event.id}` });

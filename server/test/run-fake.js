@@ -31,6 +31,13 @@ box.state.redirs = [
   { id: 100, enabled: true, ip_proto: 'tcp', wan_port_start: 443, wan_port_end: 443, lan_ip: '192.168.1.20', lan_port: 443, src_ip: '0.0.0.0', comment: 'Nginx Proxy Manager', hostname: 'proxmox' },
   { id: 101, enabled: false, ip_proto: 'udp', wan_port_start: 51820, wan_port_end: 51820, lan_ip: '192.168.1.30', lan_port: 51820, src_ip: '0.0.0.0', comment: 'WireGuard', hostname: '' },
 ];
+// Répéteurs Wi-Fi (l'un déconnecté) et le système complet
+Object.assign(box.state.system, { serial: '123456789012345', mac: '14:0C:76:00:00:01', disk_status: 'active' });
+box.state.repeaters = [
+  { id: 1, name: 'Répéteur salon', model: 'fbxwmr', firmware_version: '1.4.2', status: 'running', connection: 'connected', boot_time: t - 5 * 86400, last_seen: t, led_activated: true, main_mac: '14:0C:76:00:00:10', sn: 'RPT0001', api_ver: '1.0' },
+  { id: 2, name: 'Répéteur étage', model: 'fbxwmr', firmware_version: '1.4.2', status: 'running', connection: 'disconnected', boot_time: t - 9 * 86400, last_seen: t - 1800, led_activated: false, main_mac: '14:0C:76:00:00:11', sn: 'RPT0002', api_ver: '1.0' },
+];
+box.state.repeaterHosts[1] = [{ l2ident: { id: 'AA:00:00:00:00:03', type: 'mac_address' }, active: true, access_point: { connectivity_type: 'wifi', wifi_information: { band: '5g' } } }];
 box.state.macFilters = [{ id: 'AA:00:00:00:00:04-blacklist', mac: 'AA:00:00:00:00:04', type: 'blacklist', comment: 'Imprimante', hostname: '' }];
 // Validation automatique de l'association au bout de 4 s, débits qui bougent
 setTimeout(() => { box.state.authStatus = 'granted'; }, 4000);

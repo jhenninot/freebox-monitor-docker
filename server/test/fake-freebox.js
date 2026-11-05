@@ -36,6 +36,7 @@ export function startFakeFreebox(port = 0) {
     vpnClientConfigs: [],
     repeaters: [],
     repeaterHosts: {},
+    reboots: [],
     notifTargets: [{ id: 'phone-1', name: 'Pixel 8', type: 'android', subscriptions: ['lan_host'], api_url: 'https://relais.exemple.fr/secret', message_type: 'notification', last_use: 1700000000 }],
     vpnClientStatus: { enabled: false, state: 'down', last_error: 'none' },
   };
@@ -167,6 +168,19 @@ export function startFakeFreebox(port = 0) {
   api.get('/vpn_client/status', (_req, res) => ok(res, state.vpnClientStatus));
   api.get('/vpn_client/log', (_req, res) => ok(res, '12:00 connexion\n12:01 refusé'));
   api.get('/repeater/', (_req, res) => ok(res, state.repeaters));
+  api.post('/system/reboot/', (_req, res) => { state.reboots.push('box'); ok(res); });
+  api.post('/repeater/:id/reboot/', (req, res) => {
+    const r = state.repeaters.find((x) => String(x.id) === req.params.id);
+    if (!r) return res.status(404).json({ success: false, error_code: 'noent', msg: 'Répéteur inconnu' });
+    state.reboots.push(`repeater-${r.id}`);
+    r.status = 'rebooting';
+    ok(res);
+  });
+  api.put('/repeater/:id', (req, res) => {
+    const r = state.repeaters.find((x) => String(x.id) === req.params.id);
+    Object.assign(r, req.body);
+    ok(res, r);
+  });
   api.get('/repeater/:id/host/', (req, res) => ok(res, state.repeaterHosts[req.params.id] ?? []));
   api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, ...t }) => t)));
   api.post('/notif/targets/', (req, res) => {

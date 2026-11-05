@@ -8,6 +8,7 @@ import { normalizeMac } from './freebox/rules.js';
 import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
 import { boxNotifRouter } from './routes/boxnotif.js';
+import { equipmentRouter } from './routes/equipment.js';
 import { networkRouter } from './routes/network.js';
 import { pushRouter } from './routes/push.js';
 import { scanRouter } from './routes/scan.js';
@@ -241,6 +242,9 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       system: collector.system,
       labels,
       devices: { total: devices.length, online: devices.filter((d) => d.online).length },
+      repeaters: collector.repeaters
+        ? { total: collector.repeaters.items.length, online: collector.repeaters.items.filter((r) => r.online !== false).length }
+        : null,
       events: store.listEvents({ limit: 10 }),
       collector: collector.status(),
       tempAlertCelsius: config.tempAlertCelsius,
@@ -357,6 +361,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       status: (d) => send('status', d),
       traffic: (d) => send('traffic', d),
       scan: (d) => send('scan', d),
+      repeaters: (d) => send('repeaters', d),
     };
     Object.entries(handlers).forEach(([k, h]) => collector.on(k, h));
     const ping = setInterval(() => res.write(': ping\n\n'), 25000);
@@ -367,6 +372,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
   });
 
   api.use(boxRouter({ freebox, store, collector }));
+  api.use(equipmentRouter({ freebox, store, collector }));
   api.use(scanRouter({ store, scans: collector.scans }));
   api.use(networkRouter({ freebox, store, collector }));
   api.use(vpnRouter({ freebox }));

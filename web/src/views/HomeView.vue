@@ -123,7 +123,12 @@ watch(() => live.devicesVersion, load);
         <p v-else class="muted">En attente de la première mesure…</p>
         <p v-if="overview" class="muted">
           <RouterLink to="/appareils">{{ overview.devices.online }} appareils en ligne</RouterLink> sur {{ overview.devices.total }} connus
+          <template v-if="overview.repeaters?.total">
+            · <RouterLink to="/equipements">{{ overview.repeaters.total }} répéteur{{ overview.repeaters.total > 1 ? 's' : '' }} Wi-Fi</RouterLink>
+            <span v-if="overview.repeaters.online < overview.repeaters.total" class="error">({{ overview.repeaters.total - overview.repeaters.online }} déconnecté{{ overview.repeaters.total - overview.repeaters.online > 1 ? 's' : '' }})</span>
+          </template>
         </p>
+        <p class="small"><RouterLink to="/equipements">Équipements Free : firmware, redémarrage</RouterLink></p>
       </article>
     </div>
 

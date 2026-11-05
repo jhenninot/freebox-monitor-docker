@@ -20,6 +20,17 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
   (plusieurs appareils derrière une même prise ne peuvent pas être départagés)
 - Bandeau « température élevée » à partir de 85 °C
 
+**Équipements Free**
+- Freebox Server : modèle, firmware (avec lien vers les notes de version), date de démarrage, n° de série, MAC, disque
+- Répéteurs Wi-Fi : état (en marche, redémarrage, mise à jour, échec), connecté ou non à la box, firmware, clients Wi-Fi,
+  date de démarrage, LED allumée / éteinte
+- **Redémarrer** la box ou un répéteur (confirmation, une demande toutes les 5 min au plus, inscrit au journal avec le nom
+  du compte) ; le retour est suivi et inscrit au journal (« de retour après 2 min 40 s »), même quand ce serveur tourne
+  dans une VM de la box et redémarre avec elle
+- **Historique des firmwares** de la box et de chaque répéteur ; une nouvelle version est inscrite au journal et notifiée
+  (l'API ne permet pas de lancer une mise à jour : la box et les répéteurs se mettent à jour seuls)
+- Redémarrage et LED demandent le droit « Modification des réglages » de l'application dans Freebox OS
+
 **Appareils**
 - Liste avec recherche (nom, IP, MAC, fabricant), filtres (en ligne, hors ligne, surveillés), tri (nom, IP, activité, fabricant)
 - Étoile pour surveiller un appareil, appareils masqués en bas de liste
@@ -50,6 +61,7 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour
 - Coupure et retour de la connexion Internet, changement d'IPv4 publique, redémarrage de la box
+- Firmware de la box ou d'un répéteur mis à jour ; répéteur Wi-Fi déconnecté de la box puis de retour, redémarré, en échec de mise à jour ou de redémarrage
 - Port qui s'ouvre sur un appareil surveillé : scan rapide chaque nuit (heure réglable dans le Journal),
   comparé au scan précédent
 - Température élevée dans la box (seuil `TEMP_ALERT_CELSIUS`, 85 °C par défaut), puis retour à la normale 5 °C en dessous

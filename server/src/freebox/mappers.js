@@ -65,8 +65,45 @@ export function toSystem(s) {
     firmware: s.firmware_version || null,
     uptime: Number(s.uptime_val) || 0,
     serial: s.serial || null,
+    mac: s.mac || null,
+    diskStatus: s.disk_status || null,
     sensors: values(s.sensors),
     fans: values(s.fans),
+  };
+}
+
+/** Date (secondes) donnée par la box en secondes, en millisecondes ou en texte ISO. */
+function epoch(v) {
+  if (v === null || v === undefined || v === '') return null;
+  if (typeof v === 'number') return v > 1e11 ? Math.floor(v / 1000) : v;
+  const n = Number(v);
+  if (Number.isFinite(n)) return epoch(n);
+  const t = Date.parse(v);
+  return Number.isFinite(t) ? Math.floor(t / 1000) : null;
+}
+
+/**
+ * Répéteur Wi-Fi Freebox (GET repeater/). key : identifiant stable (n° de série, sinon MAC, sinon id de la box).
+ * status : starting, running, rebooting, updating, reboot_failure, update_failure ; connection : connected, disconnected.
+ */
+export function toRepeater(r = {}) {
+  const mac = r.main_mac ? String(r.main_mac).toUpperCase() : null;
+  return {
+    id: r.id,
+    key: String(r.sn || mac || r.id),
+    name: r.name || (r.model === 'fbxwmr' ? 'Répéteur Wi-Fi' : r.model) || `Répéteur ${r.id}`,
+    model: r.model || null,
+    firmware: r.firmware_version || null,
+    status: r.status || null,
+    connection: r.connection || null,
+    online: r.connection ? r.connection === 'connected' : null,
+    bootTime: epoch(r.boot_time),
+    lastSeen: epoch(r.last_seen),
+    led: typeof r.led_activated === 'boolean' ? r.led_activated : null,
+    enabled: typeof r.enabled === 'boolean' ? r.enabled : null,
+    mac,
+    serial: r.sn || null,
+    apiVersion: r.api_ver || null,
   };
 }
 
