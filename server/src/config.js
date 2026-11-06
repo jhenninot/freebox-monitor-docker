@@ -47,6 +47,10 @@ export function loadConfig(env = process.env) {
     // Seuil de l'alerte « température élevée » (capteur le plus chaud de la box)
     tempAlertCelsius: int(env.TEMP_ALERT_CELSIUS, 85),
 
+    // Test de débit : client Speedtest by Ookla (installé dans l'image) et serveur imposé (id Speedtest, sinon le plus proche)
+    speedtestBin: (env.SPEEDTEST_BIN || 'speedtest').trim(),
+    speedtestServerId: (env.SPEEDTEST_SERVER_ID || '').trim() || null,
+
     // Notifications Web Push : contact donné aux services de push des navigateurs (mailto: ou https:)
     pushSubject: (env.PUSH_SUBJECT || 'https://github.com/jhenninot/freebox-monitor-docker').trim(),
   };

@@ -19,6 +19,10 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 - Trafic par appareil, trié par débit actuel ou par volume : stations Wi-Fi et prises Ethernet
   (plusieurs appareils derrière une même prise ne peuvent pas être départagés)
 - Bandeau « température élevée » à partir de 85 °C
+- **Test de débit** (bouton « Test débit ») : pop-up avec jauge animée, ping puis débits descendant et montant, lancé
+  à la main. L'API Freebox n'en propose pas : le serveur lance le client officiel Speedtest by Ookla (inclus dans l'image,
+  licence pour usage personnel). Installé dans une VM de la box, le test mesure directement la connexion de la Freebox,
+  sans le Wi-Fi. Le trafic des autres appareils au lancement est affiché, les résultats sont gardés (derniers tests)
 
 **Équipements Free**
 - Freebox Server : modèle, firmware (avec lien vers les notes de version), date de démarrage, n° de série, MAC, disque
@@ -199,4 +203,5 @@ web/public/sw.js      service worker : appli installable, affichage des notifica
 
 - Fonctions de l'appli Android reprises (lot 2) : fait, sauf l'inscription des téléphones via le relais Firebase
 - À venir : ping et qualité Internet (latence, perte), surveillance des services (Home Assistant, NPM, Mealie, Proxmox)
-- **Lot 3** : test de débit planifié, Wi-Fi par appareil, rapport mensuel, capteurs MQTT pour Home Assistant
+- Test de débit à la demande : fait (lancement manuel uniquement)
+- **Lot 3** : Wi-Fi par appareil, rapport mensuel, capteurs MQTT pour Home Assistant

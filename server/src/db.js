@@ -124,6 +124,26 @@ const MIGRATIONS = [
   );
   CREATE INDEX firmware_history_equipment ON firmware_history(equipment, ts);
   `,
+  `
+  -- Tests de débit (Speedtest by Ookla, lancés depuis l'interface). Débits en Mb/s, ping en ms.
+  -- busy_down / busy_up : trafic de la box juste avant le test (autres appareils), en Mb/s
+  CREATE TABLE speedtests (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    ts          INTEGER NOT NULL,
+    by_user     TEXT,
+    ping        REAL,
+    jitter      REAL,
+    down        REAL,
+    up          REAL,
+    packet_loss REAL,
+    server      TEXT,
+    isp         TEXT,
+    url         TEXT,
+    busy_down   REAL,
+    busy_up     REAL
+  );
+  CREATE INDEX speedtests_ts ON speedtests(ts);
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -441,6 +461,28 @@ export class Store {
 
   clearPushSubscriptions() {
     this.db.prepare('DELETE FROM push_subscriptions').run();
+  }
+
+  // --- Tests de débit ---
+
+  addSpeedtest({ by = null, ping, jitter, down, up, packetLoss = null, server = null, isp = null, url = null, busy = null }, ts = now()) {
+    const info = this.db.prepare(`INSERT INTO speedtests (ts, by_user, ping, jitter, down, up, packet_loss, server, isp, url, busy_down, busy_up)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .run(ts, by, ping ?? null, jitter ?? null, down ?? null, up ?? null, packetLoss, server ? JSON.stringify(server) : null,
+        isp, url, busy?.down ?? null, busy?.up ?? null);
+    return this.listSpeedtests(1, Number(info.lastInsertRowid) + 1)[0];
+  }
+
+  /** Derniers tests, du plus récent au plus ancien (before : id exclu, pour paginer). */
+  listSpeedtests(limit = 20, before = null) {
+    const rows = before
+      ? this.db.prepare('SELECT * FROM speedtests WHERE id < ? ORDER BY id DESC LIMIT ?').all(before, limit)
+      : this.db.prepare('SELECT * FROM speedtests ORDER BY id DESC LIMIT ?').all(limit);
+    return rows.map((r) => ({
+      id: r.id, ts: r.ts, by: r.by_user, ping: r.ping, jitter: r.jitter, down: r.down, up: r.up, packetLoss: r.packet_loss,
+      server: r.server ? JSON.parse(r.server) : null, isp: r.isp, url: r.url,
+      busy: r.busy_down === null && r.busy_up === null ? null : { down: r.busy_down, up: r.busy_up },
+    }));
   }
 
   /** Copie cohérente de la base (sauvegarde), même pendant l'écriture. */

@@ -22,6 +22,8 @@ services:
       PUSH_SUBJECT: ${PUSH_SUBJECT:-}
       # Facultatif : adresse de ce serveur vue par la box (notifications de la box), réglable aussi dans l'interface
       PUBLIC_URL: ${PUBLIC_URL:-}
+      # Facultatif : serveur du test de débit (id Speedtest), sinon le plus proche
+      SPEEDTEST_SERVER_ID: ${SPEEDTEST_SERVER_ID:-}
     ports:
       - "8086:8080"
     volumes:

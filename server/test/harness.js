@@ -6,6 +6,7 @@ import { loadConfig } from '../src/config.js';
 import { openDatabase } from '../src/db.js';
 import { FreeboxClient } from '../src/freebox/client.js';
 import { Secrets } from '../src/security.js';
+import { Speedtest } from '../src/speedtest.js';
 import { WebPush } from '../src/webpush.js';
 import { startFakeFreebox } from './fake-freebox.js';
 
@@ -36,7 +37,11 @@ export async function startHarness() {
   const push = new WebPush({ store, secrets, subject: config.pushSubject, fetchImpl: pushFetch, log: quiet });
   const accounts = new Accounts(store);
   await accounts.create('julien', 'Motdepasse-2026!');
-  const app = createApp({ config, store, secrets, freebox, collector, push, accounts, log: quiet });
+  const speedtest = new Speedtest({
+    store, bin: new URL('./fake-speedtest.js', import.meta.url).pathname, log: quiet,
+    busyRates: async () => { const c = await freebox.get('connection/'); return { down: c.rate_down, up: c.rate_up }; },
+  });
+  const app = createApp({ config, store, secrets, freebox, collector, speedtest, push, accounts, log: quiet });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = '';
@@ -55,8 +60,9 @@ export async function startHarness() {
   await call('POST', '/api/auth/login', { username: 'julien', password: 'Motdepasse-2026!' });
 
   return {
-    box, store, collector, freebox, sent, call, push, pushed,
+    box, store, collector, freebox, sent, call, push, pushed, speedtest,
     close() {
+      speedtest.stop();
       server.close();
       box.close();
       store.close();

@@ -8,6 +8,7 @@ import { checkConfig, loadConfig } from './config.js';
 import { openDatabase } from './db.js';
 import { FreeboxClient } from './freebox/client.js';
 import { Secrets } from './security.js';
+import { Speedtest } from './speedtest.js';
 import { WebPush } from './webpush.js';
 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -53,7 +54,14 @@ const freebox = new FreeboxClient({ baseUrl: config.freeboxUrl, credentials, app
 const push = new WebPush({ store, secrets, subject: config.pushSubject });
 const notify = (notification) => push.send(notification);
 const collector = new Collector({ freebox, store, config, notify });
-const app = createApp({ config, store, secrets, freebox, collector, push, accounts });
+// Débits de la box juste avant un test de débit (trafic des autres appareils)
+const busyRates = async () => {
+  if (!freebox.paired) return null;
+  const c = await freebox.get('connection/');
+  return { down: c.rate_down, up: c.rate_up };
+};
+const speedtest = new Speedtest({ store, bin: config.speedtestBin, serverId: config.speedtestServerId, busyRates });
+const app = createApp({ config, store, secrets, freebox, collector, speedtest, push, accounts });
 
 // Sauvegarde quotidienne de la base dans le volume (/data/backup/freebox-monitor-<jour>.db, 7 jours gardés)
 function backup() {
@@ -80,6 +88,7 @@ const server = app.listen(config.port, () => {
 function shutdown(signal) {
   console.log(`${signal} reçu, arrêt`);
   collector.stop();
+  speedtest.stop();
   push.stop();
   clearInterval(backupTimer);
   server.close(() => {

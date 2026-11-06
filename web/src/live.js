@@ -15,6 +15,8 @@ export const live = reactive({
   scan: null,
   // Répéteurs Wi-Fi : { ts, items }
   repeaters: null,
+  // Test de débit en cours ou dernier terminé (voir SpeedtestDialog)
+  speedtest: null,
   // Débits des 5 dernières minutes pour le graphique « en direct »
   recent: [],
 });
@@ -39,6 +41,7 @@ export function startLive() {
     traffic(t) { live.traffic = t; },
     scan(p) { live.scan = p; },
     repeaters(r) { live.repeaters = r; },
+    speedtest(s) { live.speedtest = s; },
   });
 }
 

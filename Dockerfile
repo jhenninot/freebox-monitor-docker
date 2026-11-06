@@ -21,7 +21,13 @@ RUN npm ci --omit=dev --no-audit --no-fund && npm cache clean --force
 # 3. Image finale
 FROM node:22-alpine
 ENV NODE_ENV=production DATA_DIR=/data TZ=Europe/Paris
-RUN apk add --no-cache tzdata
+RUN apk add --no-cache tzdata ca-certificates
+# Test de débit : client officiel Speedtest by Ookla (binaire statique, licence pour usage personnel acceptée au lancement)
+ARG TARGETARCH
+ARG SPEEDTEST_VERSION=1.2.0
+RUN case "$TARGETARCH" in amd64) arch=x86_64 ;; arm64) arch=aarch64 ;; *) echo "Architecture $TARGETARCH non prise en charge" >&2; exit 1 ;; esac \
+ && wget -qO- "https://install.speedtest.net/app/cli/ookla-speedtest-${SPEEDTEST_VERSION}-linux-${arch}.tgz" | tar -xz -C /usr/local/bin speedtest \
+ && chmod 755 /usr/local/bin/speedtest
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY server/package.json ./

@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { api } from '../api.js';
 import RateChart from '../components/RateChart.vue';
+import SpeedtestDialog from '../components/SpeedtestDialog.vue';
 import { ago, bits, bytes, date, duration, EVENT_LABELS, MEDIA, rate, STATE } from '../format.js';
 import { live } from '../live.js';
 
@@ -15,6 +16,11 @@ const RANGES = [
 ];
 
 const overview = ref(null);
+// Test de débit : pop-up et dernier résultat
+const speedtestDialog = ref(null);
+const lastSpeedtest = ref(null);
+watch(() => overview.value?.speedtest, (t) => { if (t && (!lastSpeedtest.value || t.id >= lastSpeedtest.value.id)) lastSpeedtest.value = t; });
+const mbps = (v) => (v === null || v === undefined ? '—' : `${v.toLocaleString('fr-FR', { maximumFractionDigits: v >= 100 ? 0 : 1 })} Mb/s`);
 const range = ref('live');
 const history = ref([]);
 const error = ref('');
@@ -79,7 +85,13 @@ watch(() => live.devicesVersion, load);
     <p v-if="error" class="error">{{ error }}</p>
     <div class="grid">
       <article class="card">
-        <h2>Connexion Internet</h2>
+        <div class="row between">
+          <h2>Connexion Internet</h2>
+          <button class="small speedtest-btn" type="button" @click="speedtestDialog.open()">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M4 16a8 8 0 1 1 16 0" /><path d="M12 16l4-5" /></svg>
+            Test débit
+          </button>
+        </div>
         <template v-if="connection">
           <p class="status">
             <span class="dot" :class="connection.state === 'up' ? 'ok' : 'bad'" />
@@ -102,6 +114,11 @@ watch(() => live.devicesVersion, load);
           </dl>
         </template>
         <p v-else class="muted">En attente de la première mesure…</p>
+        <p v-if="lastSpeedtest" class="muted small">
+          Dernier test de débit ({{ date(lastSpeedtest.ts) }}) :
+          <span class="down">↓ {{ mbps(lastSpeedtest.down) }}</span> · <span class="up">↑ {{ mbps(lastSpeedtest.up) }}</span> · ping {{ lastSpeedtest.ping ?? '—' }} ms
+        </p>
+        <SpeedtestDialog ref="speedtestDialog" @done="(r) => (lastSpeedtest = r)" />
       </article>
 
       <article class="card">

@@ -12,6 +12,7 @@ import { equipmentRouter } from './routes/equipment.js';
 import { networkRouter } from './routes/network.js';
 import { pushRouter } from './routes/push.js';
 import { scanRouter } from './routes/scan.js';
+import { speedtestRouter } from './routes/speedtest.js';
 import { vpnRouter } from './routes/vpn.js';
 import { Accounts, ipLimiter, PASSWORD_POLICY, passwordError, usernameError } from './auth.js';
 
@@ -40,7 +41,7 @@ function readCookie(req, name) {
   return null;
 }
 
-export function createApp({ config, store, secrets, freebox, collector, push = null, accounts = new Accounts(store), log = console }) {
+export function createApp({ config, store, secrets, freebox, collector, speedtest = null, push = null, accounts = new Accounts(store), log = console }) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
@@ -248,6 +249,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       events: store.listEvents({ limit: 10 }),
       collector: collector.status(),
       tempAlertCelsius: config.tempAlertCelsius,
+      speedtest: store.listSpeedtests(1)[0] ?? null,
     });
   });
 
@@ -364,9 +366,12 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
       repeaters: (d) => send('repeaters', d),
     };
     Object.entries(handlers).forEach(([k, h]) => collector.on(k, h));
+    const onSpeedtest = (d) => send('speedtest', d);
+    speedtest?.on('progress', onSpeedtest);
     const ping = setInterval(() => res.write(': ping\n\n'), 25000);
     req.on('close', () => {
       clearInterval(ping);
+      speedtest?.off('progress', onSpeedtest);
       Object.entries(handlers).forEach(([k, h]) => collector.off(k, h));
     });
   });
@@ -378,6 +383,7 @@ export function createApp({ config, store, secrets, freebox, collector, push = n
   api.use(vpnRouter({ freebox }));
   api.use(boxNotifRouter({ freebox, store, config }));
   if (push) api.use(pushRouter({ push, store }));
+  if (speedtest) api.use(speedtestRouter({ speedtest, store }));
 
   api.use((_req, res) => res.status(404).json({ error: 'Route inconnue' }));
   app.use('/api', api);

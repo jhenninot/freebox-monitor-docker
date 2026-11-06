@@ -185,3 +185,7 @@ textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85r
 .qr svg { width: 240px; height: 240px; background: #fff; border-radius: 8px; }
 .badge { white-space: nowrap; }
 .badge-icon { margin-left: 0.3rem; font-size: 0.9rem; }
+
+/* Bouton « Test débit » de l'accueil */
+.speedtest-btn { display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem; }
+.speedtest-btn svg { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
