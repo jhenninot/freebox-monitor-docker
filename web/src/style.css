@@ -198,3 +198,6 @@ textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85r
 .news .badge { margin-left: 0; }
 .news-title { font-weight: 500; }
 .news-content { white-space: pre-line; }
+.news-tags { gap: 0.3rem; margin-top: 0.25rem; }
+.news-categories { margin: 0.6rem 0 0.2rem; gap: 0.35rem; }
+.news-categories button { padding: 0.15rem 0.55rem; font-size: 0.8rem; }

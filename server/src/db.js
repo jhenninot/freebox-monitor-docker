@@ -144,6 +144,22 @@ const MIGRATIONS = [
   );
   CREATE INDEX speedtests_ts ON speedtests(ts);
   `,
+  `
+  -- Billets du blog de Free (flux RSS), accumulés au fil des lectures. id = lien du billet (ou titre)
+  CREATE TABLE free_news (
+    id          TEXT PRIMARY KEY,
+    title       TEXT NOT NULL,
+    link        TEXT,
+    ts          INTEGER,
+    target      TEXT,
+    version     TEXT,
+    categories  TEXT NOT NULL DEFAULT '[]',
+    summary     TEXT,
+    content     TEXT,
+    seen_at     INTEGER NOT NULL
+  );
+  CREATE INDEX free_news_ts ON free_news(ts);
+  `,
 ];
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -435,6 +451,39 @@ export class Store {
       ? this.db.prepare('SELECT * FROM firmware_history WHERE equipment = ? ORDER BY id DESC LIMIT ?').all(equipment, limit)
       : this.db.prepare('SELECT * FROM firmware_history ORDER BY id DESC LIMIT ?').all(limit);
     return rows.map((r) => ({ id: r.id, equipment: r.equipment, name: r.name, version: r.version, previous: r.previous, ts: r.ts }));
+  }
+
+  // --- Billets du blog de Free ---
+
+  /** Ajoute ou met à jour les billets lus ; renvoie le nombre de nouveaux. Au-delà de 500, les plus anciens partent. */
+  saveNews(items, ts = now()) {
+    const exists = this.db.prepare('SELECT 1 FROM free_news WHERE id = ?');
+    const upsert = this.db.prepare(`INSERT INTO free_news (id, title, link, ts, target, version, categories, summary, content, seen_at)
+      VALUES (@id, @title, @link, @ts, @target, @version, @categories, @summary, @content, @seen)
+      ON CONFLICT(id) DO UPDATE SET title = excluded.title, link = excluded.link, ts = excluded.ts, target = excluded.target,
+        version = excluded.version, categories = excluded.categories, summary = excluded.summary,
+        content = COALESCE(excluded.content, free_news.content)`);
+    let added = 0;
+    this.transaction(() => {
+      for (const i of items) {
+        const id = i.link || i.title;
+        if (!id) continue;
+        if (!exists.get(id)) added += 1;
+        upsert.run({
+          id, title: i.title || '(sans titre)', link: i.link ?? null, ts: i.ts ?? null, target: i.target ?? null, version: i.version ?? null,
+          categories: JSON.stringify(i.categories ?? []), summary: i.summary || null, content: i.content ? i.content.slice(0, 20000) : null, seen: ts,
+        });
+      }
+      this.db.prepare('DELETE FROM free_news WHERE id NOT IN (SELECT id FROM free_news ORDER BY ts DESC LIMIT 500)').run();
+    });
+    return added;
+  }
+
+  listNews(limit = 500) {
+    return this.db.prepare('SELECT * FROM free_news ORDER BY ts DESC, seen_at DESC LIMIT ?').all(limit).map((r) => ({
+      title: r.title, link: r.link, ts: r.ts, target: r.target, version: r.version,
+      categories: JSON.parse(r.categories), summary: r.summary, content: r.content,
+    }));
   }
 
   // --- Abonnements Web Push ---

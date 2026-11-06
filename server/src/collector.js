@@ -217,20 +217,39 @@ export class Collector extends EventEmitter {
    * Flux RSS du blog de Free : si une version plus récente que celle installée (même branche) est annoncée pour la box
    * ou un répéteur, alerte « firmware_published » une seule fois par version (push si le réglage firmwareRss est coché).
    */
-  async checkReleases(ts = now()) {
+  async fetchFeed(page = 1) {
+    const base = this.config.releasesFeedUrl;
+    const url = page > 1 ? `${base}${base.includes('?') ? '&' : '?'}paged=${page}` : base;
+    const res = await this.fetchImpl(url, {
+      headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': 'Freebox-Monitor' },
+      signal: AbortSignal.timeout(20000),
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return parseRss(await res.text());
+  }
+
+  /** pages > 1 : lit aussi les pages suivantes du flux (billets plus anciens), jusqu'à une page vide ou en erreur. */
+  async checkReleases(ts = now(), { pages = 1 } = {}) {
+    if (this.releasesRunning) return this.releasesRunning;
+    this.releasesRunning = this.readReleases(ts, pages).finally(() => { this.releasesRunning = null; });
+    return this.releasesRunning;
+  }
+
+  async readReleases(ts, pages) {
     let items;
     try {
-      const res = await this.fetchImpl(this.config.releasesFeedUrl, {
-        headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': 'Freebox-Monitor' },
-        signal: AbortSignal.timeout(20000),
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      items = parseRss(await res.text());
+      items = await this.fetchFeed(1);
     } catch (e) {
       // Erreur sans conséquence pour la collecte de la box : notée pour l'interface seulement
       this.releases = { ...(this.releases ?? {}), ts, error: `Flux RSS de Free illisible (${e.message})` };
       this.log.warn(this.releases.error);
       return;
+    }
+    const older = [];
+    for (let page = 2; page <= pages; page += 1) {
+      const more = await this.fetchFeed(page).catch(() => []);
+      if (!more.length) break;
+      older.push(...more);
     }
     const pick = (r) => (r ? { title: r.title, link: r.link, ts: r.ts, version: r.version } : null);
     const firstRepeater = this.repeaters?.items.find((r) => r.firmware);
@@ -244,9 +263,7 @@ export class Collector extends EventEmitter {
     };
     this.store.setSetting('releases.last', this.releases);
     // Billets gardés pour la lecture du flux dans l'interface
-    this.store.setSetting('releases.items', items.slice(0, 30).map((i) => ({
-      ...i, target: releaseTarget(i), version: versionOf(i.title), content: i.content ? i.content.slice(0, 20000) : null,
-    })));
+    this.releases.added = this.store.saveNews([...items, ...older].map((i) => ({ ...i, target: releaseTarget(i), version: versionOf(i.title) })), ts);
 
     const alerted = new Set(this.store.getSetting('releases.alerted', []));
     const found = [];

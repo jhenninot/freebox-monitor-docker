@@ -230,3 +230,22 @@ test('flux RSS de Free : alerte dédiée une seule fois par version', async () =
   await h.collector.checkReleases();
   assert.match((await h.call('GET', '/api/equipment')).body.releases.error, /illisible/);
 });
+
+test('flux RSS de Free : relecture à la demande et pages plus anciennes', async () => {
+  const OLD = '<rss><channel><item><title>Mise à jour du Freebox Server 4.9.0</title><link>https://dev.freebox.fr/blog/?p=0</link><pubDate>Mon, 01 Sep 2026 10:00:00 +0000</pubDate></item></channel></rss>';
+  const urls = [];
+  h.collector.fetchImpl = async (url) => {
+    urls.push(url);
+    if (url.includes('paged=2')) return new Response(OLD, { status: 200 });
+    if (url.includes('paged=')) return new Response('<rss><channel></channel></rss>', { status: 200 });
+    return new Response(RSS, { status: 200 });
+  };
+  let r = await h.call('POST', '/api/equipment/news/refresh?limit=3', { all: true });
+  assert.equal(r.status, 200);
+  assert.deepEqual(urls, ['https://exemple.test/rss', 'https://exemple.test/rss?paged=2', 'https://exemple.test/rss?paged=3']);
+  assert.equal(r.body.items.length, 3);
+  assert.equal(r.body.added, 1);
+  assert.equal((await h.call('GET', '/api/equipment/news')).body.items.length, 5);
+  r = await h.call('POST', '/api/equipment/news/refresh', {});
+  assert.equal(r.status, 429);
+});

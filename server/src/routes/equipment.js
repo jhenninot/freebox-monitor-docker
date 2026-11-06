@@ -52,14 +52,34 @@ export function equipmentRouter({ freebox, store, collector }) {
   router.get('/equipment', (_req, res) => res.json(view()));
 
   // Billets du blog de Free (flux RSS lu par le collecteur) ; mine : concerne la box ou un répéteur d'ici
-  router.get('/equipment/news', (_req, res) => {
+  const news = (limit) => {
     const latest = collector.releases?.latest ?? {};
-    const items = store.getSetting('releases.items', []).map((i) => ({
+    const items = store.listNews(limit).map((i) => ({
       ...i,
       mine: Boolean(i.version && ((i.target === 'server' && i.version === latest.server?.version)
         || (i.target === 'repeater' && i.version === latest.repeater?.version))),
     }));
-    res.json({ ts: collector.releases?.ts ?? null, error: collector.releases?.error ?? null, enabled: Boolean(collector.config.releasesFeedUrl), items });
+    return {
+      ts: collector.releases?.ts ?? null,
+      error: collector.releases?.error ?? null,
+      added: collector.releases?.added ?? null,
+      enabled: Boolean(collector.config.releasesFeedUrl),
+      items,
+    };
+  };
+  const limitOf = (req) => Math.min(Math.max(Number.parseInt(req.query.limit, 10) || 500, 1), 500);
+
+  // ?limit=10 pour la carte de la page Équipements ; sans limite : tout le flux gardé (500 billets au plus)
+  router.get('/equipment/news', (req, res) => res.json(news(limitOf(req))));
+
+  // Relecture à la demande ; all=true lit aussi les pages plus anciennes du flux (jusqu'à 10)
+  let lastRefresh = 0;
+  router.post('/equipment/news/refresh', async (req, res) => {
+    if (!collector.config.releasesFeedUrl) throw new HttpError(400, 'Lecture du flux désactivée (FREE_RELEASES_URL vide)');
+    if (Date.now() - lastRefresh < 15000) throw new HttpError(429, 'Flux relu il y a moins de 15 s, réessaie dans un instant');
+    lastRefresh = Date.now();
+    await collector.checkReleases(now(), { pages: req.body?.all ? 10 : 1 });
+    res.json(news(limitOf(req)));
   });
 
   router.post('/equipment/box/reboot', async (req, res) => {
