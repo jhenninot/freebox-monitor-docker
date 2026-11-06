@@ -105,6 +105,14 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
           <dt>Modèle</dt><dd>{{ system.model ?? '—' }}</dd>
           <dt>Firmware</dt>
           <dd>{{ system.firmware ?? '—' }} · <a href="https://dev.freebox.fr/blog/" target="_blank" rel="noopener">notes de version</a></dd>
+          <template v-if="data.box.update?.state">
+            <dt>Mise à jour</dt>
+            <dd>
+              <span class="dot" :class="data.box.update.state === 'up_to_date' ? 'ok' : 'bad'" />
+              {{ data.box.update.state === 'up_to_date' ? 'Firmware à jour' : `En attente (${data.box.update.state})` }}
+              <span class="muted small">· état calculé par la box à son démarrage</span>
+            </dd>
+          </template>
           <dt>Démarrée</dt><dd>{{ date(data.box.bootTs) }} <span class="muted">({{ duration(system.uptime) }})</span></dd>
           <dt>N° de série</dt><dd>{{ system.serial ?? '—' }}</dd>
           <dt>Adresse MAC</dt><dd>{{ system.mac ?? '—' }}</dd>

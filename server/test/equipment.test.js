@@ -158,6 +158,21 @@ test('redémarrage de la Freebox demandé puis constaté', async () => {
   assert.equal(h.store.getSetting('box.rebootRequest'), null);
 });
 
+test('mise à jour du firmware en attente (update/)', async () => {
+  assert.equal((await h.call('GET', '/api/equipment')).body.box.update.state, 'up_to_date');
+  h.sent.length = 0;
+  h.box.state.updateState = 'upgrade_pending';
+  // Relu après un redémarrage (ou toutes les heures)
+  await h.collector.checkUpdateState(Math.floor(Date.now() / 1000), true);
+  const e = h.store.listEvents({ limit: 5 }).find((x) => x.type === 'firmware_available');
+  assert.match(e.message, /mise à jour du firmware en attente \(état : upgrade_pending\)/);
+  assert.equal(h.sent.filter((n) => /en attente/.test(n.message)).length, 1);
+  // Pas de nouvelle alerte tant que l'état ne change pas
+  await h.collector.checkUpdateState(Math.floor(Date.now() / 1000), true);
+  assert.equal(h.store.listEvents({ limit: 20 }).filter((x) => x.type === 'firmware_available').length, 1);
+  h.box.state.updateState = 'up_to_date';
+});
+
 test('droit « Modification des réglages » manquant', async () => {
   h.freebox.permissions = { settings: false };
   assert.equal((await h.call('GET', '/api/equipment')).body.canManage, false);

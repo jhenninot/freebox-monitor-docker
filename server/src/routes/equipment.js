@@ -31,6 +31,7 @@ export function equipmentRouter({ freebox, store, collector }) {
         system,
         bootTs: system ? system.ts - system.uptime : null,
         rebootRequest: store.getSetting('box.rebootRequest', null),
+        update: collector.update,
         firmware: store.listFirmware('box', 20),
       },
       repeaters: {

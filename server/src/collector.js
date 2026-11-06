@@ -30,6 +30,8 @@ export class Collector extends EventEmitter {
     this.ftth = null;
     // Répéteurs Wi-Fi : { ts, items } (null tant qu'ils n'ont pas été lus ou si la box ne les gère pas)
     this.repeaters = null;
+    // État de mise à jour de la box (GET update/, non documenté) : { state, ts } ; null si illisible
+    this.update = null;
     // Scans de ports (à la demande et chaque nuit sur les appareils surveillés)
     this.scans = new PortScans({ store, alert: (a) => this.alert(a), log, ...(scanner ? { scanner } : {}) });
     this.scans.on('progress', (p) => this.emit('scan', p));
@@ -128,7 +130,8 @@ export class Collector extends EventEmitter {
     this.store.addMetrics(values, ts);
     this.store.setSetting('system.labels', Object.fromEntries([...s.sensors, ...s.fans].map((v) => [v.id, v.name])));
 
-    await this.checkBoxReboot(s, ts);
+    const rebooted = await this.checkBoxReboot(s, ts);
+    await this.checkUpdateState(ts, rebooted);
     const update = this.store.recordFirmware('box', s.model || 'Freebox', s.firmware, ts);
     if (update?.previous) await this.firmwareAlert(update, 'Firmware de la Freebox');
     await this.checkTemperature(s.sensors);
@@ -142,11 +145,11 @@ export class Collector extends EventEmitter {
    * ce serveur a été arrêté en même temps (VM de la Freebox). Si il avait été demandé depuis l'interface, on le dit.
    */
   async checkBoxReboot(s, ts) {
-    if (!s.uptime) return;
+    if (!s.uptime) return false;
     const boot = ts - s.uptime;
     const before = this.store.getSetting('system.bootTs', null);
     this.store.setSetting('system.bootTs', boot);
-    if (!before || boot <= before + 120) return;
+    if (!before || boot <= before + 120) return false;
     const request = this.store.getSetting('box.rebootRequest', null);
     this.store.setSetting('box.rebootRequest', null);
     const firmware = s.firmware ? ` (firmware ${s.firmware})` : '';
@@ -154,6 +157,38 @@ export class Collector extends EventEmitter {
       await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré à la demande de ${request.by}, de retour après ${duration(ts - request.ts)}${firmware}` });
     } else {
       await this.alert({ type: 'box_reboot', message: `La Freebox a redémarré${firmware}` });
+    }
+    return true;
+  }
+
+  /**
+   * GET update/ : la box dit si son firmware est à jour (« up_to_date »). Free indique que cet état n'est calculé qu'au
+   * démarrage de la box : on le relit toutes les heures et après chaque redémarrage. Alerte une fois quand il n'est
+   * plus à jour (push si le réglage « firmware » est coché).
+   */
+  async checkUpdateState(ts, force = false) {
+    if (this.updateSupported === false) return;
+    if (!force && this.update && ts - this.update.ts < 3600) return;
+    let result;
+    try {
+      result = await this.freebox.get('update/');
+    } catch (e) {
+      if (e.status === 404 || e.code === 'invalid_request' || e.code === 'nodev') this.updateSupported = false;
+      return;
+    }
+    const state = result?.state ? String(result.state) : null;
+    this.update = { state, ts };
+    if (!state) return;
+    const before = this.store.getSetting('box.updateState', null);
+    this.store.setSetting('box.updateState', state);
+    if (state !== 'up_to_date' && state !== before) {
+      const settings = { ...DEFAULT_ALERT_SETTINGS, ...this.store.getSetting('alerts.settings', {}) };
+      await this.alert({
+        type: 'firmware_available',
+        message: `La Freebox signale une mise à jour du firmware en attente (état : ${state}). Elle s'installe en général au prochain redémarrage.`,
+        data: { state },
+        push: settings.firmware,
+      });
     }
   }
 

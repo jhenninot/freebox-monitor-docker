@@ -168,6 +168,7 @@ export function startFakeFreebox(port = 0) {
   api.get('/vpn_client/status', (_req, res) => ok(res, state.vpnClientStatus));
   api.get('/vpn_client/log', (_req, res) => ok(res, '12:00 connexion\n12:01 refusé'));
   api.get('/repeater/', (_req, res) => ok(res, state.repeaters));
+  api.get('/update/', (_req, res) => ok(res, { state: state.updateState ?? 'up_to_date' }));
   api.post('/system/reboot/', (_req, res) => { state.reboots.push('box'); ok(res); });
   api.post('/repeater/:id/reboot/', (req, res) => {
     const r = state.repeaters.find((x) => String(x.id) === req.params.id);

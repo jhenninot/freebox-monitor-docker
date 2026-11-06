@@ -67,7 +67,7 @@ async function save() {
           </select>
         </label>
         <label class="check"><input v-model="settings.repeaters" type="checkbox"> Répéteur Wi-Fi déconnecté de la box (même délai), redémarré, en échec de mise à jour</label>
-        <label class="check"><input v-model="settings.firmware" type="checkbox"> Notification quand le firmware de la box ou d'un répéteur est mis à jour (toujours inscrit au journal)</label>
+        <label class="check"><input v-model="settings.firmware" type="checkbox"> Notification quand le firmware de la box ou d'un répéteur est mis à jour, ou quand la box signale une mise à jour en attente (toujours inscrit au journal)</label>
         <p class="muted small">Les coupures Internet, changements d'IP publique, redémarrages et surchauffe de la box sont toujours signalés.</p>
         <div class="row">
           <button>Enregistrer</button>
