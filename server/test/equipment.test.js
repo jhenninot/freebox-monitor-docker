@@ -178,3 +178,50 @@ test('droit « Modification des réglages » manquant', async () => {
   assert.equal((await h.call('GET', '/api/equipment')).body.canManage, false);
   h.freebox.permissions = { settings: true };
 });
+
+const RSS = `<?xml version="1.0"?><rss><channel>
+<item><title>Mise à jour du Freebox Server 4.9.3</title><link>https://dev.freebox.fr/blog/?p=1</link><pubDate>Tue, 03 Nov 2026 10:00:00 +0000</pubDate><category><![CDATA[Mise à jour]]></category></item>
+<item><title><![CDATA[Freebox Server Révolution : mise à jour 4.7.12]]></title><link>https://dev.freebox.fr/blog/?p=2</link><pubDate>Mon, 02 Nov 2026 10:00:00 +0000</pubDate></item>
+<item><title>Mise à jour du Répéteur Wi-Fi 1.5.0</title><link>https://dev.freebox.fr/blog/?p=3</link><pubDate>Sun, 01 Nov 2026 10:00:00 +0000</pubDate></item>
+<item><title>Freebox Player Pop 1.9.9</title><pubDate>Sun, 01 Nov 2026 09:00:00 +0000</pubDate></item>
+</channel></rss>`;
+
+test('flux RSS de Free : lecture et comparaison des versions', async () => {
+  const { parseRss, newerRelease, compareVersions, releaseTarget } = await import('../src/freebox/releases.js');
+  const items = parseRss(RSS);
+  assert.equal(items.length, 4);
+  assert.equal(items[1].title, 'Freebox Server Révolution : mise à jour 4.7.12');
+  assert.deepEqual(items.map(releaseTarget), ['server', 'server', 'repeater', null]);
+  assert.ok(compareVersions('4.9.10', '4.9.2') > 0);
+  assert.equal(newerRelease(items, 'server', '4.9.1').version, '4.9.3');
+  assert.equal(newerRelease(items, 'server', '4.9.3'), null);
+  assert.equal(newerRelease(items, 'server', '4.7.11', 'Freebox Révolution').version, '4.7.12', 'modèle installé');
+  assert.equal(newerRelease(items, 'server', '4.9.1', 'Freebox Ultra').version, '4.9.3', 'billet Révolution ignoré');
+  assert.equal(newerRelease(items, 'repeater', '1.4.2').version, '1.5.0');
+});
+
+test('flux RSS de Free : alerte dédiée une seule fois par version', async () => {
+  h.collector.fetchImpl = async () => new Response(RSS, { status: 200 });
+  h.collector.config.releasesFeedUrl = 'https://exemple.test/rss';
+  h.box.state.system.firmware_version = '4.9.1';
+  await h.collector.pollSystem();
+  h.box.state.repeaters[0].firmware_version = '1.4.2';
+  await h.collector.fetchRepeaterHosts();
+  h.sent.length = 0;
+  await h.collector.checkReleases();
+  let published = h.store.listEvents({ limit: 20 }).filter((e) => e.type === 'firmware_published');
+  assert.equal(published.length, 2);
+  assert.ok(published.some((e) => /firmware 4\.9\.3 pour Freebox Ultra \(installé : 4\.9\.1\)/.test(e.message)));
+  assert.ok(published.some((e) => /firmware 1\.5\.0 pour Répéteur salon/.test(e.message)));
+  assert.equal(h.sent.length, 2);
+  await h.collector.checkReleases();
+  published = h.store.listEvents({ limit: 20 }).filter((e) => e.type === 'firmware_published');
+  assert.equal(published.length, 2, 'pas de doublon');
+  const r = (await h.call('GET', '/api/equipment')).body;
+  assert.equal(r.box.release.version, '4.9.3');
+  assert.equal(r.repeaters.release.version, '1.5.0');
+  // Flux injoignable : erreur affichée, rien ne casse
+  h.collector.fetchImpl = async () => { throw new Error('ECONNRESET'); };
+  await h.collector.checkReleases();
+  assert.match((await h.call('GET', '/api/equipment')).body.releases.error, /illisible/);
+});

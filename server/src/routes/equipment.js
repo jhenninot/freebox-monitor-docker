@@ -32,9 +32,12 @@ export function equipmentRouter({ freebox, store, collector }) {
         bootTs: system ? system.ts - system.uptime : null,
         rebootRequest: store.getSetting('box.rebootRequest', null),
         update: collector.update,
+        release: collector.releases?.latest?.server ?? null,
         firmware: store.listFirmware('box', 20),
       },
+      releases: { ts: collector.releases?.ts ?? null, error: collector.releases?.error ?? null, enabled: Boolean(collector.config.releasesFeedUrl) },
       repeaters: {
+        release: collector.releases?.latest?.repeater ?? null,
         supported: collector.repeatersSupported !== false,
         ts: collector.repeaters?.ts ?? null,
         items: (collector.repeaters?.items ?? []).map((r) => ({

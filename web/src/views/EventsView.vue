@@ -37,8 +37,8 @@ async function save() {
   info.value = '';
   error.value = '';
   try {
-    const { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, repeaters } = settings.value;
-    const body = { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, repeaters };
+    const { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, firmwareRss, repeaters } = settings.value;
+    const body = { newDevices, offline, offlineMinutes, nightlyScan, nightlyScanHour, firmware, firmwareRss, repeaters };
     Object.assign(settings.value, await api('/alerts/settings', { method: 'PUT', body }));
     info.value = 'Réglages enregistrés';
   } catch (e) {
@@ -68,6 +68,7 @@ async function save() {
         </label>
         <label class="check"><input v-model="settings.repeaters" type="checkbox"> Répéteur Wi-Fi déconnecté de la box (même délai), redémarré, en échec de mise à jour</label>
         <label class="check"><input v-model="settings.firmware" type="checkbox"> Notification quand le firmware de la box ou d'un répéteur est mis à jour, ou quand la box signale une mise à jour en attente (toujours inscrit au journal)</label>
+        <label class="check"><input v-model="settings.firmwareRss" type="checkbox"> Nouvelle version annoncée par Free sur son blog pour ta box ou tes répéteurs (flux RSS, lu toutes les 6 h)</label>
         <p class="muted small">Les coupures Internet, changements d'IP publique, redémarrages et surchauffe de la box sont toujours signalés.</p>
         <div class="row">
           <button>Enregistrer</button>

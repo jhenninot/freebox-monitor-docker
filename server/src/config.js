@@ -27,6 +27,9 @@ export function loadConfig(env = process.env) {
     // Adresse de ce serveur vue par la Freebox (notifications de la box), ex. http://192.168.1.20:8086
     publicUrl: (env.PUBLIC_URL || '').trim().replace(/\/+$/, ''),
 
+    // Flux RSS des mises à jour publiées par Free (comparé aux versions installées) ; vide pour ne pas le lire
+    releasesFeedUrl: (env.FREE_RELEASES_URL ?? 'https://dev.freebox.fr/blog/?feed=rss2&cat=1').trim(),
+
     freeboxUrl: (env.FREEBOX_URL || 'http://mafreebox.freebox.fr').replace(/\/+$/, ''),
 
     // Périodes de collecte, en secondes

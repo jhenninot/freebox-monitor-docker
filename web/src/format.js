@@ -63,6 +63,7 @@ export const EVENT_LABELS = {
   box_reboot_request: 'Redémarrage demandé',
   firmware_update: 'Firmware',
   firmware_available: 'Mise à jour en attente',
+  firmware_published: 'Version annoncée',
   repeater_down: 'Répéteur déconnecté',
   repeater_back: 'Répéteur reconnecté',
   repeater_failure: 'Répéteur en échec',

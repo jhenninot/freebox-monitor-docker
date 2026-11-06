@@ -65,6 +65,8 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Journal et alertes**
 - Nouvel appareil sur le réseau, appareil surveillé hors ligne (délai réglable) puis de retour
 - Coupure et retour de la connexion Internet, changement d'IPv4 publique, redémarrage de la box
+- Firmware en attente d'installation signalé par la box (`update/`) ; nouvelle version annoncée par Free sur son blog
+  (flux RSS lu toutes les 6 h, `FREE_RELEASES_URL`) pour le modèle de ta box ou tes répéteurs, alerte à part
 - Firmware de la box ou d'un répéteur mis à jour ; répéteur Wi-Fi déconnecté de la box puis de retour, redémarré, en échec de mise à jour ou de redémarrage
 - Port qui s'ouvre sur un appareil surveillé : scan rapide chaque nuit (heure réglable dans le Journal),
   comparé au scan précédent

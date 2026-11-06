@@ -2,6 +2,7 @@
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
 import { repeaterLinks, toConnection, toDevice, toFtth, toRepeater, toSystem } from './freebox/mappers.js';
+import { latestFor, newerRelease, parseRss } from './freebox/releases.js';
 import { deviceTraffic, repeaterStations } from './freebox/traffic.js';
 import { duration, evaluateRepeaters } from './repeaters.js';
 import { PortScans } from './scan/scans.js';
@@ -9,7 +10,7 @@ import { PortScans } from './scan/scans.js';
 const now = () => Math.floor(Date.now() / 1000);
 
 export class Collector extends EventEmitter {
-  constructor({ freebox, store, config, notify = null, log = console, scanner }) {
+  constructor({ freebox, store, config, notify = null, log = console, scanner, fetchImpl = fetch }) {
     super();
     this.freebox = freebox;
     this.store = store;
@@ -32,6 +33,9 @@ export class Collector extends EventEmitter {
     this.repeaters = null;
     // État de mise à jour de la box (GET update/, non documenté) : { state, ts } ; null si illisible
     this.update = null;
+    // Versions annoncées par Free (flux RSS) : { ts, latest: { server, repeater }, error }
+    this.fetchImpl = fetchImpl;
+    this.releases = store.getSetting('releases.last', null);
     // Scans de ports (à la demande et chaque nuit sur les appareils surveillés)
     this.scans = new PortScans({ store, alert: (a) => this.alert(a), log, ...(scanner ? { scanner } : {}) });
     this.scans.on('progress', (p) => this.emit('scan', p));
@@ -50,10 +54,16 @@ export class Collector extends EventEmitter {
     every('traffic', intervals.traffic, () => this.pollTraffic());
     this.timers.push(setInterval(() => this.guard('rollup', () => this.store.rollup(this.config.retention)), intervals.rollup * 1000));
     this.timers.push(setInterval(() => this.nightlyScanDue(), 60 * 1000));
+    // Flux RSS de Free : premier passage 2 min après le démarrage (versions installées déjà lues), puis toutes les 6 h
+    if (this.config.releasesFeedUrl) {
+      // Hors de guard() : ce flux ne dit rien de la joignabilité de la box
+      const releases = () => this.checkReleases().catch((e) => this.log.warn(`Flux RSS de Free : ${e.message}`));
+      this.timers.push(setTimeout(releases, 120 * 1000), setInterval(releases, 6 * 3600 * 1000));
+    }
   }
 
   stop() {
-    this.timers.forEach(clearInterval);
+    this.timers.forEach((t) => { clearInterval(t); clearTimeout(t); });
     this.timers = [];
     this.scans.stopAll();
   }
@@ -201,6 +211,67 @@ export class Collector extends EventEmitter {
       data: { equipment: update.equipment, before: update.previous, after: update.version },
       push: settings.firmware,
     });
+  }
+
+  /**
+   * Flux RSS du blog de Free : si une version plus récente que celle installée (même branche) est annoncée pour la box
+   * ou un répéteur, alerte « firmware_published » une seule fois par version (push si le réglage firmwareRss est coché).
+   */
+  async checkReleases(ts = now()) {
+    let items;
+    try {
+      const res = await this.fetchImpl(this.config.releasesFeedUrl, {
+        headers: { Accept: 'application/rss+xml, application/xml, text/xml', 'User-Agent': 'Freebox-Monitor' },
+        signal: AbortSignal.timeout(20000),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      items = parseRss(await res.text());
+    } catch (e) {
+      // Erreur sans conséquence pour la collecte de la box : notée pour l'interface seulement
+      this.releases = { ...(this.releases ?? {}), ts, error: `Flux RSS de Free illisible (${e.message})` };
+      this.log.warn(this.releases.error);
+      return;
+    }
+    const pick = (r) => (r ? { title: r.title, link: r.link, ts: r.ts, version: r.version } : null);
+    const firstRepeater = this.repeaters?.items.find((r) => r.firmware);
+    this.releases = {
+      ts,
+      latest: {
+        server: pick(latestFor(items, 'server', this.system?.firmware, this.system?.model ?? '')),
+        repeater: pick(firstRepeater ? latestFor(items, 'repeater', firstRepeater.firmware) : null),
+      },
+      error: items.length ? null : 'Flux RSS de Free vide',
+    };
+    this.store.setSetting('releases.last', this.releases);
+
+    const alerted = new Set(this.store.getSetting('releases.alerted', []));
+    const found = [];
+    const box = newerRelease(items, 'server', this.system?.firmware, this.system?.model ?? '');
+    if (box) found.push({ release: box, label: this.system.model || 'la Freebox Server', installed: this.system.firmware });
+    const byVersion = new Map();
+    for (const r of this.repeaters?.items ?? []) {
+      const release = newerRelease(items, 'repeater', r.firmware);
+      if (!release) continue;
+      const entry = byVersion.get(release.version) ?? { release, names: [], installed: r.firmware };
+      entry.names.push(r.name);
+      byVersion.set(release.version, entry);
+    }
+    for (const { release, names, installed } of byVersion.values()) {
+      found.push({ release, label: names.length > 1 ? `les répéteurs (${names.join(', ')})` : names[0], installed, target: 'repeater' });
+    }
+    const settings = { ...DEFAULT_ALERT_SETTINGS, ...this.store.getSetting('alerts.settings', {}) };
+    for (const { release, label, installed, target = 'server' } of found) {
+      const id = `${target}:${release.version}`;
+      if (alerted.has(id)) continue;
+      alerted.add(id);
+      this.store.setSetting('releases.alerted', [...alerted].slice(-50));
+      await this.alert({
+        type: 'firmware_published',
+        message: `Free annonce le firmware ${release.version} pour ${label} (installé : ${installed}). La mise à jour se fait en général toute seule, la nuit.`,
+        data: { target, version: release.version, installed, link: release.link },
+        push: settings.firmwareRss,
+      });
+    }
   }
 
   /** Répéteurs lus sur la box : état servi à l'interface, versions de firmware et alertes (voir repeaters.js). */

@@ -13,6 +13,8 @@ export const DEFAULT_ALERT_SETTINGS = {
   firmware: true,
   // Répéteur Wi-Fi déconnecté de la box (même délai que les appareils), échec de mise à jour ou de redémarrage
   repeaters: true,
+  // Nouvelle version annoncée sur le blog de Free (flux RSS) pour la box ou les répéteurs
+  firmwareRss: true,
 };
 
 /** Normalise des réglages reçus de l'interface. */
@@ -26,6 +28,7 @@ export function cleanAlertSettings(input = {}, current = DEFAULT_ALERT_SETTINGS)
     newDevices: typeof input.newDevices === 'boolean' ? input.newDevices : current.newDevices,
     offline: typeof input.offline === 'boolean' ? input.offline : current.offline,
     firmware: typeof input.firmware === 'boolean' ? input.firmware : (current.firmware ?? defaults.firmware),
+    firmwareRss: typeof input.firmwareRss === 'boolean' ? input.firmwareRss : (current.firmwareRss ?? defaults.firmwareRss),
     repeaters: typeof input.repeaters === 'boolean' ? input.repeaters : (current.repeaters ?? defaults.repeaters),
     offlineMinutes: Number.isFinite(minutes) ? Math.min(Math.max(minutes, 1), 24 * 60) : current.offlineMinutes,
   };

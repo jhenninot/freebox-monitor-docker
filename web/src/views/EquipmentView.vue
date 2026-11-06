@@ -78,6 +78,16 @@ function toggleLed(r) {
 }
 
 const dotClass = (r) => (r.online === false || /failure/.test(r.status ?? '') ? 'bad' : r.status && r.status !== 'running' ? 'off' : 'ok');
+// Version a plus récente que b (« 4.9.10 » > « 4.9.2 »)
+function newer(a, b) {
+  if (!a || !b) return false;
+  const pa = a.split('.').map(Number);
+  const pb = b.split('.').map(Number);
+  for (let i = 0; i < Math.max(pa.length, pb.length); i += 1) {
+    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) return (pa[i] ?? 0) > (pb[i] ?? 0);
+  }
+  return false;
+}
 const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 </script>
 
@@ -113,6 +123,14 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
               <span class="muted small">· état calculé par la box à son démarrage</span>
             </dd>
           </template>
+          <template v-if="data.box.release">
+            <dt>Annoncée par Free</dt>
+            <dd>
+              <a :href="data.box.release.link" target="_blank" rel="noopener">{{ data.box.release.version }}</a>
+              <span class="muted small"> · {{ date(data.box.release.ts) }}</span>
+              <span v-if="newer(data.box.release.version, system.firmware)" class="badge new">plus récente</span>
+            </dd>
+          </template>
           <dt>Démarrée</dt><dd>{{ date(data.box.bootTs) }} <span class="muted">({{ duration(system.uptime) }})</span></dd>
           <dt>N° de série</dt><dd>{{ system.serial ?? '—' }}</dd>
           <dt>Adresse MAC</dt><dd>{{ system.mac ?? '—' }}</dd>
@@ -133,6 +151,11 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
     <h2>Répéteurs Wi-Fi</h2>
     <p v-if="data && !data.repeaters.supported" class="muted">Cette Freebox ne gère pas les répéteurs Wi-Fi.</p>
     <p v-else-if="data && !repeaters.length" class="muted">Aucun répéteur Wi-Fi Freebox associé à la box.</p>
+    <p v-if="data?.repeaters.release && repeaters.length" class="small">
+      Dernière version annoncée par Free pour les répéteurs :
+      <a :href="data.repeaters.release.link" target="_blank" rel="noopener">{{ data.repeaters.release.version }}</a>
+      <span class="muted"> · {{ date(data.repeaters.release.ts) }}</span>
+    </p>
     <div class="grid">
       <article v-for="r in repeaters" :key="r.key" class="card">
         <div class="row between">
@@ -141,7 +164,8 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
         </div>
         <p v-if="repeaterPending(r)" class="banner">Redémarrage demandé par {{ r.rebootRequest.by }} à {{ time(r.rebootRequest.ts) }}…</p>
         <dl>
-          <dt>Firmware</dt><dd>{{ r.firmware ?? '—' }}</dd>
+          <dt>Firmware</dt>
+          <dd>{{ r.firmware ?? '—' }}<span v-if="data.repeaters.release && newer(data.repeaters.release.version, r.firmware)" class="badge new">{{ data.repeaters.release.version }} annoncée</span></dd>
           <dt>Clients Wi-Fi</dt><dd>{{ r.clients }}</dd>
           <template v-if="r.bootTime"><dt>Démarré</dt><dd>{{ date(r.bootTime) }} <span class="muted">({{ ago(r.bootTime).replace('il y a ', '') }})</span></dd></template>
           <template v-if="r.online === false && r.lastSeen"><dt>Vu</dt><dd>{{ ago(r.lastSeen) }}</dd></template>
@@ -167,7 +191,8 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
     </div>
     <p class="muted small">
       La Freebox et les répéteurs se mettent à jour seuls (en général la nuit) : l'API ne permet pas de lancer une mise à jour,
-      mais chaque nouvelle version est inscrite au journal.
+      mais chaque nouvelle version est inscrite au journal. Les versions annoncées viennent du blog de Free (flux RSS).
+      <span v-if="data?.releases.error" class="error">{{ data.releases.error }}</span>
     </p>
   </section>
 </template>
