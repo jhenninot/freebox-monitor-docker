@@ -2,7 +2,7 @@
 import { EventEmitter } from 'node:events';
 import { DEFAULT_ALERT_SETTINGS, evaluateAlerts } from './alerts.js';
 import { repeaterLinks, toConnection, toDevice, toFtth, toRepeater, toSystem } from './freebox/mappers.js';
-import { latestFor, newerRelease, parseRss } from './freebox/releases.js';
+import { latestFor, newerRelease, parseRss, releaseTarget, versionOf } from './freebox/releases.js';
 import { deviceTraffic, repeaterStations } from './freebox/traffic.js';
 import { duration, evaluateRepeaters } from './repeaters.js';
 import { PortScans } from './scan/scans.js';
@@ -243,6 +243,10 @@ export class Collector extends EventEmitter {
       error: items.length ? null : 'Flux RSS de Free vide',
     };
     this.store.setSetting('releases.last', this.releases);
+    // Billets gardés pour la lecture du flux dans l'interface
+    this.store.setSetting('releases.items', items.slice(0, 30).map((i) => ({
+      ...i, target: releaseTarget(i), version: versionOf(i.title), content: i.content ? i.content.slice(0, 20000) : null,
+    })));
 
     const alerted = new Set(this.store.getSetting('releases.alerted', []));
     const found = [];

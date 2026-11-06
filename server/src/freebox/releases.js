@@ -7,10 +7,17 @@ const ENTITIES = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ' }
 function decode(text = '') {
   return text
     .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, '$1')
+    // Le HTML des billets arrive échappé (&lt;p&gt;) ou en CDATA : on garde les retours à la ligne
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/<\s*(br|\/p|\/li|\/h\d|\/div)\s*\/?>/gi, '\n')
+    .replace(/<\s*li[^>]*>/gi, '• ')
     .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
     .replace(/&#x([0-9a-f]+);/gi, (_m, n) => String.fromCodePoint(Number.parseInt(n, 16)))
     .replace(/&([a-z]+);/gi, (m, n) => ENTITIES[n.toLowerCase()] ?? m)
     .replace(/<[^>]+>/g, '')
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\s*\n\s*(\n\s*)+/g, '\n\n')
+    .replace(/ *\n */g, '\n')
     .trim();
 }
 
@@ -19,7 +26,7 @@ const tag = (xml, name) => {
   return m ? decode(m[1]) : '';
 };
 
-/** Billets du flux : [{ title, link, ts, categories }]. */
+/** Billets du flux : [{ title, link, ts, categories, summary, content }] (summary et content en texte brut). */
 export function parseRss(xml = '') {
   const items = [];
   for (const m of String(xml).matchAll(/<item\b[^>]*>([\s\S]*?)<\/item>/gi)) {
@@ -30,6 +37,8 @@ export function parseRss(xml = '') {
       link: tag(body, 'link') || null,
       ts: Number.isFinite(date) ? Math.floor(date / 1000) : null,
       categories: [...body.matchAll(/<category[^>]*>([\s\S]*?)<\/category>/gi)].map((c) => decode(c[1])),
+      summary: tag(body, 'description').replace(/\s*\[(…|&hellip;|\.\.\.)\]\s*$/, '…'),
+      content: tag(body, 'content:encoded') || null,
     });
   }
   return items;

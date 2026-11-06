@@ -180,7 +180,7 @@ test('droit « Modification des réglages » manquant', async () => {
 });
 
 const RSS = `<?xml version="1.0"?><rss><channel>
-<item><title>Mise à jour du Freebox Server 4.9.3</title><link>https://dev.freebox.fr/blog/?p=1</link><pubDate>Tue, 03 Nov 2026 10:00:00 +0000</pubDate><category><![CDATA[Mise à jour]]></category></item>
+<item><title>Mise à jour du Freebox Server 4.9.3</title><link>https://dev.freebox.fr/blog/?p=1</link><pubDate>Tue, 03 Nov 2026 10:00:00 +0000</pubDate><category><![CDATA[Mise à jour]]></category><description><![CDATA[<p>Corrections Wi-Fi […]</p>]]></description><content:encoded><![CDATA[<p>Nouveautés :</p><ul><li>Wi-Fi 7 plus stable</li><li>VPN corrigé</li></ul>]]></content:encoded></item>
 <item><title><![CDATA[Freebox Server Révolution : mise à jour 4.7.12]]></title><link>https://dev.freebox.fr/blog/?p=2</link><pubDate>Mon, 02 Nov 2026 10:00:00 +0000</pubDate></item>
 <item><title>Mise à jour du Répéteur Wi-Fi 1.5.0</title><link>https://dev.freebox.fr/blog/?p=3</link><pubDate>Sun, 01 Nov 2026 10:00:00 +0000</pubDate></item>
 <item><title>Freebox Player Pop 1.9.9</title><pubDate>Sun, 01 Nov 2026 09:00:00 +0000</pubDate></item>
@@ -191,6 +191,8 @@ test('flux RSS de Free : lecture et comparaison des versions', async () => {
   const items = parseRss(RSS);
   assert.equal(items.length, 4);
   assert.equal(items[1].title, 'Freebox Server Révolution : mise à jour 4.7.12');
+  assert.equal(items[0].summary, 'Corrections Wi-Fi…');
+  assert.equal(items[0].content, 'Nouveautés :\n• Wi-Fi 7 plus stable\n• VPN corrigé');
   assert.deepEqual(items.map(releaseTarget), ['server', 'server', 'repeater', null]);
   assert.ok(compareVersions('4.9.10', '4.9.2') > 0);
   assert.equal(newerRelease(items, 'server', '4.9.1').version, '4.9.3');
@@ -220,6 +222,9 @@ test('flux RSS de Free : alerte dédiée une seule fois par version', async () =
   const r = (await h.call('GET', '/api/equipment')).body;
   assert.equal(r.box.release.version, '4.9.3');
   assert.equal(r.repeaters.release.version, '1.5.0');
+  const news = (await h.call('GET', '/api/equipment/news')).body;
+  assert.equal(news.items.length, 4);
+  assert.deepEqual(news.items.map((i) => i.mine), [true, false, true, false]);
   // Flux injoignable : erreur affichée, rien ne casse
   h.collector.fetchImpl = async () => { throw new Error('ECONNRESET'); };
   await h.collector.checkReleases();

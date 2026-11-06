@@ -189,3 +189,12 @@ textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85r
 /* Bouton « Test débit » de l'accueil */
 .speedtest-btn { display: inline-flex; align-items: center; gap: 0.35rem; margin-bottom: 0.75rem; }
 .speedtest-btn svg { fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; }
+
+.news { list-style: none; padding: 0; margin: 0 0 0.5rem; }
+.news li { padding: 0.6rem 0; border-top: 1px solid var(--border); }
+.news li:first-child { border-top: 0; }
+.news li.mine { border-left: 3px solid var(--accent); padding-left: 0.6rem; }
+.news li p { margin: 0.3rem 0; }
+.news .badge { margin-left: 0; }
+.news-title { font-weight: 500; }
+.news-content { white-space: pre-line; }

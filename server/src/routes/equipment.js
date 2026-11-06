@@ -51,6 +51,17 @@ export function equipmentRouter({ freebox, store, collector }) {
 
   router.get('/equipment', (_req, res) => res.json(view()));
 
+  // Billets du blog de Free (flux RSS lu par le collecteur) ; mine : concerne la box ou un répéteur d'ici
+  router.get('/equipment/news', (_req, res) => {
+    const latest = collector.releases?.latest ?? {};
+    const items = store.getSetting('releases.items', []).map((i) => ({
+      ...i,
+      mine: Boolean(i.version && ((i.target === 'server' && i.version === latest.server?.version)
+        || (i.target === 'repeater' && i.version === latest.repeater?.version))),
+    }));
+    res.json({ ts: collector.releases?.ts ?? null, error: collector.releases?.error ?? null, enabled: Boolean(collector.config.releasesFeedUrl), items });
+  });
+
   router.post('/equipment/box/reboot', async (req, res) => {
     cooldown(store.getSetting('box.rebootRequest', null));
     await freebox.post('system/reboot/', {});

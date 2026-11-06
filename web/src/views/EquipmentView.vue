@@ -40,7 +40,27 @@ function schedule() {
   const pending = boxPending.value || repeaters.value.some(repeaterPending);
   timer = setTimeout(async () => { await load(); schedule(); }, pending ? 5000 : 30000);
 }
-onMounted(async () => { await load(); schedule(); });
+onMounted(async () => { await load(); schedule(); loadNews(); });
+
+// Nouveautés Free : billets du blog (flux RSS lu par le serveur toutes les 6 h)
+const NEWS_FILTERS = [{ id: 'all', label: 'Tout' }, { id: 'server', label: 'Box' }, { id: 'repeater', label: 'Répéteurs' }];
+const news = ref(null);
+const newsFilter = ref('all');
+const newsAll = ref(false);
+const opened = ref(new Set());
+async function loadNews() {
+  news.value = await api('/equipment/news').catch(() => news.value);
+}
+const newsItems = computed(() => {
+  const items = (news.value?.items ?? []).filter((i) => newsFilter.value === 'all' || i.target === newsFilter.value);
+  return newsAll.value ? items : items.slice(0, 6);
+});
+const newsCount = computed(() => (news.value?.items ?? []).filter((i) => newsFilter.value === 'all' || i.target === newsFilter.value).length);
+function toggleNews(i) {
+  const next = new Set(opened.value);
+  if (next.has(i.link)) next.delete(i.link); else next.add(i.link);
+  opened.value = next;
+}
 onUnmounted(() => clearTimeout(timer));
 watch(() => live.repeaters, load);
 watch(() => live.lastEvent, load);
@@ -189,6 +209,33 @@ const time = (ts) => new Date(ts * 1000).toLocaleTimeString('fr-FR', { hour: '2-
         </details>
       </article>
     </div>
+    <article v-if="news?.enabled" class="card">
+      <div class="row between">
+        <h2>Nouveautés Free</h2>
+        <div class="tabs">
+          <button v-for="f in NEWS_FILTERS" :key="f.id" :class="{ active: newsFilter === f.id }" @click="newsFilter = f.id">{{ f.label }}</button>
+        </div>
+      </div>
+      <p v-if="news.error" class="error small">{{ news.error }}</p>
+      <ul v-if="newsItems.length" class="news">
+        <li v-for="i in newsItems" :key="i.link ?? i.title" :class="{ mine: i.mine }">
+          <div class="row between">
+            <a :href="i.link" target="_blank" rel="noopener" class="news-title">{{ i.title }}</a>
+            <span class="muted small">{{ date(i.ts) }}</span>
+          </div>
+          <span v-if="i.mine" class="badge new">ton matériel</span>
+          <p v-if="!opened.has(i.link) && i.summary" class="muted small">{{ i.summary }}</p>
+          <p v-if="opened.has(i.link)" class="news-content small">{{ i.content || i.summary }}</p>
+          <button v-if="i.content" class="ghost small" @click="toggleNews(i)">{{ opened.has(i.link) ? 'Réduire' : 'Lire le billet' }}</button>
+        </li>
+      </ul>
+      <p v-else-if="!news.error" class="muted">{{ news.ts ? 'Aucun billet pour ce filtre.' : 'Le flux sera lu quelques minutes après le démarrage du serveur.' }}</p>
+      <div class="row between">
+        <p class="muted small">Blog de Free (dev.freebox.fr), relu toutes les 6 h<template v-if="news.ts"> · dernière lecture {{ ago(news.ts) }}</template></p>
+        <button v-if="newsCount > 6" class="ghost small" @click="newsAll = !newsAll">{{ newsAll ? 'Réduire' : `Tout afficher (${newsCount})` }}</button>
+      </div>
+    </article>
+
     <p class="muted small">
       La Freebox et les répéteurs se mettent à jour seuls (en général la nuit) : l'API ne permet pas de lancer une mise à jour,
       mais chaque nouvelle version est inscrite au journal. Les versions annoncées viennent du blog de Free (flux RSS).
