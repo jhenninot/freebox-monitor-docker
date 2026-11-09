@@ -94,6 +94,26 @@ dans `.env` puis `docker compose up -d`.
 
 ## 6. Mettre à jour
 
+Watchtower s'en charge tout seul s'il est installé. Pour mettre à jour tout de suite, le script
+[`scripts/update.sh`](../scripts/update.sh) télécharge la dernière image, recrée le conteneur seulement si l'image a changé,
+attend que l'appli réponde (healthcheck), supprime les anciennes images et affiche la version avant → après.
+
+Installation, une fois (depuis ton poste si le dépôt est privé) :
+
+```bash
+scp scripts/update.sh <utilisateur>@192.168.1.50:~/freebox-monitor/
+ssh <utilisateur>@192.168.1.50 chmod +x ~/freebox-monitor/update.sh
+```
+
+Puis, dans la VM :
+
+```bash
+~/freebox-monitor/update.sh          # met à jour si une nouvelle image existe
+~/freebox-monitor/update.sh --force  # recrée le conteneur même sans nouvelle image
+```
+
+À la main, sans le script :
+
 ```bash
 cd ~/freebox-monitor
 docker compose pull && docker compose up -d
@@ -101,7 +121,7 @@ docker image prune -f
 ```
 
 Pour le faire automatiquement chaque nuit : `crontab -e` puis
-`30 4 * * * cd ~/freebox-monitor && docker compose pull -q && docker compose up -d && docker image prune -f`.
+`30 4 * * * ~/freebox-monitor/update.sh >> ~/freebox-monitor/update.log 2>&1`.
 
 ## Bon à savoir
 
