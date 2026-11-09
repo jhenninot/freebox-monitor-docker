@@ -8,6 +8,7 @@ import { normalizeMac } from './freebox/rules.js';
 import { rankTraffic } from './freebox/traffic.js';
 import { boxRouter } from './routes/box.js';
 import { boxNotifRouter } from './routes/boxnotif.js';
+import { dnsRouter } from './routes/dns.js';
 import { equipmentRouter } from './routes/equipment.js';
 import { networkRouter } from './routes/network.js';
 import { pushRouter } from './routes/push.js';
@@ -41,7 +42,7 @@ function readCookie(req, name) {
   return null;
 }
 
-export function createApp({ config, store, secrets, freebox, collector, speedtest = null, push = null, accounts = new Accounts(store), log = console }) {
+export function createApp({ config, store, secrets, freebox, collector, speedtest = null, push = null, accounts = new Accounts(store), dnsTest = undefined, log = console }) {
   const app = express();
   app.set('trust proxy', config.trustProxy);
   app.disable('x-powered-by');
@@ -381,6 +382,7 @@ export function createApp({ config, store, secrets, freebox, collector, speedtes
   api.use(scanRouter({ store, scans: collector.scans }));
   api.use(networkRouter({ freebox, store, collector }));
   api.use(vpnRouter({ freebox }));
+  api.use(dnsRouter({ freebox, testServer: dnsTest }));
   api.use(boxNotifRouter({ freebox, store, config }));
   if (push) api.use(pushRouter({ push, store }));
   if (speedtest) api.use(speedtestRouter({ speedtest, store }));

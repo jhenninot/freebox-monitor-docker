@@ -13,6 +13,7 @@ import LoginView from './views/LoginView.vue';
 import PairingView from './views/PairingView.vue';
 import BoxNotifView from './views/network/BoxNotifView.vue';
 import DhcpView from './views/network/DhcpView.vue';
+import DnsView from './views/network/DnsView.vue';
 import PortForwardView from './views/network/PortForwardView.vue';
 import VpnClientView from './views/network/VpnClientView.vue';
 import VpnView from './views/network/VpnView.vue';
@@ -29,6 +30,7 @@ const router = createRouter({
     { path: '/equipements/nouveautes', component: NewsView, meta: { title: 'Nouveautés Free' } },
     { path: '/reseau', component: NetworkView, meta: { title: 'Réseau' } },
     { path: '/reseau/ip-fixes', component: DhcpView, meta: { title: 'IP fixes' } },
+    { path: '/reseau/dns', component: DnsView, meta: { title: 'DNS' } },
     { path: '/reseau/redirections', component: PortForwardView, meta: { title: 'Redirections de ports' } },
     { path: '/reseau/vpn', component: VpnView, meta: { title: 'Serveur VPN' } },
     { path: '/reseau/client-vpn', component: VpnClientView, meta: { title: 'Client VPN' } },

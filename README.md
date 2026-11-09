@@ -50,6 +50,8 @@ Freebox ──API locale──> freebox-monitor (Node + Express + SQLite) ──
 **Réseau**
 - IP fixes : liste, ajout, modification, suppression, « Fixer » une adresse distribuée automatiquement,
   rappel des appareils surveillés sans IP fixe
+- DNS : serveurs DNS distribués par le DHCP de la box (5 au plus, ordre modifiable), préréglages (Freebox,
+  Cloudflare, Quad9, Google, FDN…), test de réponse de chaque serveur, avertissement si la box n'est plus dans la liste
 - Redirections de ports : liste, ajout (plages, IP source), modification, activation, suppression, avec les
   avertissements de l'appli Android (port déjà pris par la box ou une autre redirection, destination sans IP fixe,
   IPv4 partagée) ; état de la DMZ et ports utilisés par les services de la box

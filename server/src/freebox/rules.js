@@ -204,3 +204,22 @@ export function portForwardWarnings(rule, others, incoming, staticIps, ipv4PortR
   }
   return warnings;
 }
+
+// --- Serveurs DNS distribués par le DHCP de la box ---
+
+/** La Freebox accepte jusqu'à 5 serveurs DNS IPv4 pour son DHCP. */
+export const MAX_DHCP_DNS = 5;
+
+/** Nettoie la liste saisie (espaces, cases vides) sans changer l'ordre. */
+export const cleanDnsList = (list) => (Array.isArray(list) ? list : []).map((ip) => String(ip ?? '').trim()).filter(Boolean);
+
+/** Vérifie la liste des serveurs DNS avant de l'envoyer à la box. Renvoie un message d'erreur, ou null. */
+export function dnsServersError(list) {
+  const servers = cleanDnsList(list);
+  if (!servers.length) return 'Indique au moins un serveur DNS';
+  if (servers.length > MAX_DHCP_DNS) return `La Freebox accepte au plus ${MAX_DHCP_DNS} serveurs DNS`;
+  const invalid = servers.find((ip) => !isValidIp(ip));
+  if (invalid) return `Adresse IPv4 invalide : ${invalid}`;
+  if (new Set(servers).size !== servers.length) return 'Le même serveur DNS est indiqué deux fois';
+  return null;
+}

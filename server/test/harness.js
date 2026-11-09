@@ -41,7 +41,8 @@ export async function startHarness() {
     store, bin: new URL('./fake-speedtest.js', import.meta.url).pathname, log: quiet,
     busyRates: async () => { const c = await freebox.get('connection/'); return { down: c.rate_down, up: c.rate_up }; },
   });
-  const app = createApp({ config, store, secrets, freebox, collector, speedtest, push, accounts, log: quiet });
+  const app = createApp({ config, store, secrets, freebox, collector, speedtest, push, accounts, log: quiet,
+    dnsTest: async (server) => (server === '192.168.1.2' ? { server, ok: false, error: 'Pas de réponse' } : { server, ok: true, ms: 12, addresses: ['212.27.48.10'] }) });
   const server = await new Promise((resolve) => { const s = app.listen(0, '127.0.0.1', () => resolve(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
   let cookie = '';

@@ -74,6 +74,7 @@ const deviceLink = (d) => `/appareils/${encodeURIComponent(d.key)}`;
         Serveur DHCP {{ data.config.enabled ? 'actif' : 'désactivé' }} · box {{ data.config.gateway }} / {{ data.config.netmask }}
         · adresses distribuées de {{ data.config.rangeStart }} à {{ data.config.rangeEnd }}
         <template v-if="data.config.dns.length"> · DNS {{ data.config.dns.join(', ') }}</template>
+        · <RouterLink to="/reseau/dns">modifier les DNS</RouterLink>
       </p>
 
       <div v-if="data.watchedWithoutLease.length" class="banner">

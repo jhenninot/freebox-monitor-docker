@@ -86,6 +86,7 @@ export function startFakeFreebox(port = 0) {
   api.post('/lan/wol/pub/', (req, res) => { state.wol.push(req.body); ok(res); });
 
   api.get('/dhcp/config/', (_req, res) => ok(res, state.dhcpConfig));
+  api.put('/dhcp/config/', (req, res) => { Object.assign(state.dhcpConfig, req.body); ok(res, state.dhcpConfig); });
   api.get('/dhcp/static_lease/', (_req, res) => ok(res, state.staticLeases));
   api.get('/dhcp/dynamic_lease/', (_req, res) => ok(res, state.dynamicLeases));
   api.post('/dhcp/static_lease/', (req, res) => {
