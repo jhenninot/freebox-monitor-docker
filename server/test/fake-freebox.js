@@ -184,7 +184,8 @@ export function startFakeFreebox(port = 0) {
     ok(res, r);
   });
   api.get('/repeater/:id/host/', (req, res) => ok(res, state.repeaterHosts[req.params.id] ?? []));
-  api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, ...t }) => t)));
+  // notifHideIds : comme certains Freebox OS, liste sans le champ id
+  api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, id, ...t }) => (state.notifHideIds ? t : { id, ...t }))));
   api.post('/notif/targets/', (req, res) => {
     if (!req.body.id) return res.status(400).json({ success: false, error_code: 'invalid_request', msg: 'invalid id' });
     // Comme la vraie box : refus si un destinataire du même nom existe déjà (ancienne installation)

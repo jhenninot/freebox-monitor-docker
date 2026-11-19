@@ -113,11 +113,14 @@ const CALLS = { register: 'inscription confirmée', unregister: 'désinscription
                 <td>{{ t.name }}<span v-if="t.mine" class="badge gone">ce serveur</span><span v-else-if="t.stale" class="badge">ancienne installation</span><div v-if="t.lastUse" class="small muted">utilisé le {{ date(t.lastUse) }}</div></td>
                 <td class="small">{{ t.subscriptions.map(label).join(', ') }}</td>
                 <td class="small">{{ t.host }}</td>
-                <td class="actions"><button v-if="!t.mine" class="danger small" :disabled="busy" @click="removeTarget(t)">Retirer</button></td>
+                <td class="actions"><button v-if="t.removable" class="danger small" :disabled="busy" @click="removeTarget(t)">Retirer</button></td>
               </tr>
             </tbody>
           </table>
           <p v-else class="muted">Aucun.</p>
+          <p v-if="data.targets.some((t) => !t.mine && !t.removable)" class="small muted">
+            La box ne donne pas l'identifiant de certains destinataires : pour les retirer, passe par Freebox OS, Paramètres de la Freebox &gt; Gestion des accès &gt; Notifications.
+          </p>
           <p v-if="error" class="error">{{ error }}</p>
           <p v-if="data.targets.some((t) => t.stale)" class="small muted">
             « Ancienne installation » : destinataire laissé par une autre installation de Freebox Monitor (ancienne machine, base remise à zéro).

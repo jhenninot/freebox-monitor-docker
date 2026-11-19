@@ -23,23 +23,40 @@ export function boxNotifRouter({ freebox, store, config, log = console }) {
   };
   const apiUrlOf = (base) => `${normalizeBaseUrl(base)}/box-notif/${notifIdentity(store).secret}`;
 
-  // La box peut renvoyer notre cible sous un autre id que celui donné à l'inscription :
-  // on la reconnaît aussi au secret dans son adresse et à l'id qu'elle a donné en appelant /register
-  const listTargets = async () => {
-    const targets = await freebox.get('notif/targets/');
-    return (Array.isArray(targets) ? targets : []).filter((t, i, all) => all.findIndex((x) => x.id === t.id) === i);
-  };
+  // La box peut renvoyer notre cible sous un autre id que celui donné à l'inscription, ou sans id du tout
+  // (Freebox OS récents : tous les destinataires sans champ id) : on la reconnaît aussi au secret dans son
+  // adresse et à l'id qu'elle a donné en appelant /register
+  let fieldsLogged = false;
+  const keyOf = (t) => t.id ?? t.device_id ?? t.target_id ?? t.uid ?? null;
   const isMine = (t) => {
     const { targetId, secret } = notifIdentity(store);
     const registration = store.getSetting('boxnotif.registration');
-    return t.id === targetId || (registration?.deviceId && t.id === registration.deviceId) || String(t.api_url ?? '').includes(`/box-notif/${secret}`);
+    const key = keyOf(t);
+    return (key != null && (key === targetId || (registration?.deviceId && key === registration.deviceId)))
+      || String(t.api_url ?? '').includes(`/box-notif/${secret}`);
+  };
+  const listTargets = async () => {
+    const raw = await freebox.get('notif/targets/');
+    const targets = Array.isArray(raw) ? raw : [];
+    if (!fieldsLogged && targets.length) {
+      fieldsLogged = true;
+      log.info?.(`Notifications de la box : champs des destinataires renvoyés par la box : ${Object.keys(targets[0]).join(', ')}`);
+    }
+    const { targetId } = notifIdentity(store);
+    return targets
+      .map((t) => {
+        const mine = isMine(t);
+        // Sans id renvoyé par la box, le nôtre est celui donné à l'inscription
+        return { ...t, id: keyOf(t) ?? (mine ? targetId : null), mine };
+      })
+      .filter((t, i, all) => t.id == null || all.findIndex((x) => x.id === t.id) === i);
   };
 
   router.get('/box-notif', async (_req, res) => {
     const subjects = BOX_SUBSCRIPTIONS.map(([id, label]) => ({ id, label }));
     if (!supported()) return res.json({ supported: false, subjects });
     const list = await listTargets();
-    const mine = list.find(isMine) ?? null;
+    const mine = list.find((t) => t.mine) ?? null;
     const baseUrl = store.getSetting('boxnotif.baseUrl') || config.publicUrl || '';
     res.json({
       supported: true,
@@ -52,9 +69,10 @@ export function boxNotifRouter({ freebox, store, config, log = console }) {
       targetId: mine?.id ?? null,
       lastCall: store.getSetting('boxnotif.lastCall'),
       targets: list.map((t) => ({
-        id: t.id, name: t.name, type: t.type, subscriptions: t.subscriptions ?? [], lastUse: t.last_use ?? 0, mine: isMine(t),
+        id: t.id, name: t.name, type: t.type, subscriptions: t.subscriptions ?? [], lastUse: t.last_use ?? 0, mine: t.mine,
         // Laissé par une ancienne installation (autre machine ou base remise à zéro)
-        stale: !isMine(t) && t.name === TARGET_NAME,
+        stale: !t.mine && t.name === TARGET_NAME,
+        removable: !t.mine && t.id != null,
         // Adresse masquée : elle contient le secret du relais
         host: String(t.api_url ?? '').replace(/^(https?:\/\/[^/]+).*$/, '$1'),
       })),
@@ -75,13 +93,13 @@ export function boxNotifRouter({ freebox, store, config, log = console }) {
       id: targetId, name: TARGET_NAME, type: 'android', token, subscriptions: subs, api_url: apiUrlOf(baseUrl), message_type: 'notification',
     };
     const targets = await listTargets();
-    const existing = targets.find(isMine);
+    const existing = targets.find((t) => t.mine);
     if (existing) await freebox.put(`notif/targets/${enc(existing.id)}`, { ...body, id: existing.id });
     else {
       store.setSetting('boxnotif.registration', null);
       // Destinataire laissé par une ancienne installation de Freebox Monitor (autre machine, base neuve) :
       // la box refuse alors la nouvelle inscription (« Erreur de notification »). On le remplace.
-      const orphans = targets.filter((t) => t.name === TARGET_NAME && !isMine(t));
+      const orphans = targets.filter((t) => t.name === TARGET_NAME && !t.mine && t.id != null);
       try {
         await freebox.post('notif/targets/', body);
       } catch (e) {
@@ -100,14 +118,14 @@ export function boxNotifRouter({ freebox, store, config, log = console }) {
     }
     store.setSetting('boxnotif.baseUrl', normalizeBaseUrl(baseUrl));
     // Sujets demandés que la box n'a pas gardés (fonction absente sur ce modèle, par exemple)
-    const saved = (await listTargets()).find(isMine);
+    const saved = (await listTargets()).find((t) => t.mine);
     const dropped = saved ? subs.filter((x) => !(saved.subscriptions ?? []).includes(x)) : [];
     res.json({ ok: true, dropped });
   });
 
   router.delete('/box-notif', async (_req, res) => {
     requireSupported();
-    const existing = (await listTargets()).find(isMine);
+    const existing = (await listTargets()).find((t) => t.mine);
     if (existing) await freebox.del(`notif/targets/${enc(existing.id)}`);
     store.setSetting('boxnotif.registration', null);
     res.json({ ok: true });

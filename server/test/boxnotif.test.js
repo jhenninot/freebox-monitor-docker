@@ -115,3 +115,25 @@ test('ancienne installation déjà inscrite (autre machine, base neuve) : rempla
     h3.close();
   }
 });
+
+test('la box liste les destinataires sans id : tous affichés, le nôtre reconnu à son adresse', async () => {
+  const h4 = await startHarness();
+  try {
+    h4.box.state.notifHideIds = true;
+    h4.box.state.notifTargets.push({ id: 'akita', name: 'fr.freebox.network-akita', type: 'firebase', subscriptions: ['box_state'], api_url: 'https://api.exemple.fr/connect' });
+    let r = await h4.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.41:8086', subscriptions: ['lan_host'] });
+    assert.equal(r.status, 200);
+    r = await h4.call('GET', '/api/box-notif');
+    assert.equal(r.body.targets.length, 3);
+    assert.equal(r.body.registered, true);
+    assert.deepEqual(r.body.targets.map((t) => [t.mine, t.removable]), [[false, false], [false, false], [true, false]]);
+    // Mise à jour et retrait de la nôtre avec l'id donné à l'inscription
+    r = await h4.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.41:8086', subscriptions: ['lan_host', 'phone'] });
+    assert.equal(h4.box.state.notifTargets.length, 3);
+    assert.deepEqual(h4.box.state.notifTargets[2].subscriptions, ['lan_host', 'phone']);
+    await h4.call('DELETE', '/api/box-notif');
+    assert.equal(h4.box.state.notifTargets.length, 2);
+  } finally {
+    h4.close();
+  }
+});
