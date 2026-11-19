@@ -187,6 +187,8 @@ export function startFakeFreebox(port = 0) {
   api.get('/notif/targets/', (_req, res) => ok(res, state.notifTargets.map(({ token, ...t }) => t)));
   api.post('/notif/targets/', (req, res) => {
     if (!req.body.id) return res.status(400).json({ success: false, error_code: 'invalid_request', msg: 'invalid id' });
+    // Comme la vraie box : refus si un destinataire du même nom existe déjà (ancienne installation)
+    if (state.notifRejectAll || (state.notifRejectSameName && state.notifTargets.some((t) => t.name === req.body.name))) return res.status(400).json({ success: false, error_code: 'exists', msg: 'Erreur de notification' });
     if (state.notifTargets.some((t) => t.api_url === req.body.api_url)) return res.status(400).json({ success: false, error_code: 'exists', msg: 'Erreur de notification' });
     // Comme certaines box : id réécrit, sujets inconnus du modèle ignorés
     const subscriptions = req.body.subscriptions.filter((x) => !state.notifUnsupported?.includes(x));

@@ -110,7 +110,7 @@ const CALLS = { register: 'inscription confirmée', unregister: 'désinscription
             <thead><tr><th>Nom</th><th>Notifications</th><th>Relais</th><th /></tr></thead>
             <tbody>
               <tr v-for="t in data.targets" :key="t.id">
-                <td>{{ t.name }}<span v-if="t.mine" class="badge gone">ce serveur</span><div v-if="t.lastUse" class="small muted">utilisé le {{ date(t.lastUse) }}</div></td>
+                <td>{{ t.name }}<span v-if="t.mine" class="badge gone">ce serveur</span><span v-else-if="t.stale" class="badge">ancienne installation</span><div v-if="t.lastUse" class="small muted">utilisé le {{ date(t.lastUse) }}</div></td>
                 <td class="small">{{ t.subscriptions.map(label).join(', ') }}</td>
                 <td class="small">{{ t.host }}</td>
                 <td class="actions"><button v-if="!t.mine" class="danger small" :disabled="busy" @click="removeTarget(t)">Retirer</button></td>
@@ -118,6 +118,10 @@ const CALLS = { register: 'inscription confirmée', unregister: 'désinscription
             </tbody>
           </table>
           <p v-else class="muted">Aucun.</p>
+          <p v-if="data.targets.some((t) => t.stale)" class="small muted">
+            « Ancienne installation » : destinataire laissé par une autre installation de Freebox Monitor (ancienne machine, base remise à zéro).
+            La box n'en accepte pas un second : il est remplacé à l'inscription de ce serveur, ou retire-le.
+          </p>
         </article>
       </template>
     </template>

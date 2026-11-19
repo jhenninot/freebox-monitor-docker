@@ -86,3 +86,32 @@ test('la box réécrit l\'id de la cible et ignore un sujet : toujours reconnue 
     h2.close();
   }
 });
+
+test('ancienne installation déjà inscrite (autre machine, base neuve) : remplacée au lieu d\'un refus', async () => {
+  const h3 = await startHarness();
+  try {
+    h3.box.state.notifRejectSameName = true;
+    h3.box.state.notifTargets = [
+      { id: 'phone-1', name: 'Pixel 8', type: 'android', subscriptions: ['lan_host'], api_url: 'https://relais.exemple.fr/secret' },
+      { id: 'fbm-server-old', name: 'Freebox Monitor (serveur)', type: 'android', subscriptions: ['lan_host'], api_url: 'http://192.168.0.94:8086/box-notif/ancien' },
+    ];
+    let r = await h3.call('GET', '/api/box-notif');
+    assert.equal(r.body.registered, false);
+    assert.deepEqual(r.body.targets.map((t) => t.stale), [false, true]);
+    r = await h3.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.41:8086', subscriptions: ['lan_host'] });
+    assert.equal(r.status, 200);
+    assert.deepEqual(h3.box.state.notifTargets.map((t) => t.name), ['Pixel 8', 'Freebox Monitor (serveur)']);
+    assert.match(h3.box.state.notifTargets[1].api_url, /^http:\/\/192\.168\.0\.41:8086\/box-notif\//);
+    r = await h3.call('GET', '/api/box-notif');
+    assert.equal(r.body.registered, true);
+
+    // Refus sans ancien destinataire à remplacer : message explicite
+    h3.box.state.notifTargets = [];
+    h3.box.state.notifRejectAll = true;
+    r = await h3.call('PUT', '/api/box-notif', { baseUrl: 'http://192.168.0.41:8086', subscriptions: ['lan_host'] });
+    assert.equal(r.status, 400);
+    assert.match(r.body.error, /^La box a refusé l'inscription \(Erreur de notification, code exists\)/);
+  } finally {
+    h3.close();
+  }
+});

@@ -383,7 +383,7 @@ export function createApp({ config, store, secrets, freebox, collector, speedtes
   api.use(networkRouter({ freebox, store, collector }));
   api.use(vpnRouter({ freebox }));
   api.use(dnsRouter({ freebox, testServer: dnsTest }));
-  api.use(boxNotifRouter({ freebox, store, config }));
+  api.use(boxNotifRouter({ freebox, store, config, log }));
   if (push) api.use(pushRouter({ push, store }));
   if (speedtest) api.use(speedtestRouter({ speedtest, store }));
 
