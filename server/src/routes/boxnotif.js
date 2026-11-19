@@ -117,6 +117,11 @@ export function boxNotifRouter({ freebox, store, config, log = console }) {
   router.delete('/box-notif/targets/:id', async (req, res) => {
     requireSupported();
     await freebox.del(`notif/targets/${enc(req.params.id)}`);
+    // Certaines box répondent « OK » sans rien retirer (destinataire créé par une autre application associée)
+    if ((await listTargets()).some((t) => t.id === req.params.id)) {
+      throw new HttpError(409, 'La box a accepté la demande mais garde ce destinataire : il a sans doute été créé par une autre installation de Freebox Monitor. '
+        + 'Retire-le depuis cette installation (bouton Désinscrire), ou retire son application dans Freebox OS (Paramètres > Gestion des accès > Applications).');
+    }
     res.json({ ok: true });
   });
 

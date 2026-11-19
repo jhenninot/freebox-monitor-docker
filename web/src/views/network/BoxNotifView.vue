@@ -118,6 +118,7 @@ const CALLS = { register: 'inscription confirmée', unregister: 'désinscription
             </tbody>
           </table>
           <p v-else class="muted">Aucun.</p>
+          <p v-if="error" class="error">{{ error }}</p>
           <p v-if="data.targets.some((t) => t.stale)" class="small muted">
             « Ancienne installation » : destinataire laissé par une autre installation de Freebox Monitor (ancienne machine, base remise à zéro).
             La box n'en accepte pas un second : il est remplacé à l'inscription de ce serveur, ou retire-le.
