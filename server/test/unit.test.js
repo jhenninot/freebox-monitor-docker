@@ -113,3 +113,24 @@ test('base : sessions de présence et agrégats', () => {
   assert.equal(day.bucket >= 60, true);
   store.close();
 });
+
+test('networkReason : cause DNS, délai et code brut', async () => {
+  const { networkReason } = await import('../src/freebox/client.js');
+  const dns = Object.assign(new TypeError('fetch failed'), { cause: { code: 'EAI_AGAIN', hostname: 'mafreebox.freebox.fr' } });
+  assert.match(networkReason(dns, 10000), /mafreebox\.freebox\.fr.*DNS, EAI_AGAIN/);
+  assert.equal(networkReason({ name: 'TimeoutError' }, 10000), 'pas de réponse en 10 s');
+  assert.equal(networkReason({ cause: { code: 'ECONNRESET' } }, 10000), 'ECONNRESET');
+});
+
+test('Collecteur : une erreur par tâche, pas effacée par la réussite d\'une autre', async () => {
+  const { Collector } = await import('../src/collector.js');
+  const store = { getSetting: (k, d) => d, setSetting() {} };
+  const c = new Collector({ freebox: { paired: true }, store, config: {}, log: { warn() {}, info() {} } });
+  await c.guard('devices', async () => { throw Object.assign(new Error('boom'), { code: 'internal_error' }); });
+  await c.guard('connection', async () => {});
+  assert.equal(c.lastError?.task, 'devices');
+  assert.equal(c.lastError.unreachable, false);
+  assert.match(c.lastError.message, /^Appareils : boom/);
+  await c.guard('devices', async () => {});
+  assert.equal(c.lastError, null);
+});

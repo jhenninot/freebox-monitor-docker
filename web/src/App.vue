@@ -8,6 +8,9 @@ const route = useRoute();
 const router = useRouter();
 const ready = ref(false);
 const paired = ref(true);
+// Détail de l'erreur de collecte (le survol du badge n'existe pas sur mobile)
+const showError = ref(false);
+const when = (ts) => new Date(ts * 1000).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 async function checkPairing() {
   try {
@@ -68,10 +71,19 @@ async function logout() {
         <RouterLink to="/journal">Journal</RouterLink>
       </nav>
       <span class="spacer" />
-      <span v-if="live.status?.lastError" class="pill bad" :title="live.status.lastError.message">Freebox injoignable</span>
+      <button v-if="live.status?.lastError" class="pill bad status-pill" :title="live.status.lastError.message" @click="showError = !showError">
+        {{ live.status.lastError.unreachable === false ? 'Collecte en erreur' : 'Freebox injoignable' }}
+      </button>
       <RouterLink to="/compte" class="account" title="Mon compte : changer le mot de passe">{{ session.username }}</RouterLink>
       <button class="ghost" @click="logout">Déconnexion</button>
     </header>
+    <div v-if="session.authenticated && showError && live.status?.lastError" class="status-detail" @click="showError = false">
+      <p>{{ live.status.lastError.message }}</p>
+      <p class="muted small">
+        Depuis {{ when(live.status.lastError.since ?? live.status.lastError.ts) }}
+        <template v-if="live.status.lastSuccess"> · dernière réponse de la box {{ when(live.status.lastSuccess) }}</template>
+      </p>
+    </div>
     <main>
       <RouterView v-if="session.authenticated || route.meta.public" />
     </main>

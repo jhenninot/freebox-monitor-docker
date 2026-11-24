@@ -8,6 +8,7 @@ import { duration, evaluateRepeaters } from './repeaters.js';
 import { PortScans } from './scan/scans.js';
 
 const now = () => Math.floor(Date.now() / 1000);
+const TASKS = { connection: 'Connexion Internet', devices: 'Appareils', system: 'Freebox Server', traffic: 'Trafic' };
 
 export class Collector extends EventEmitter {
   constructor({ freebox, store, config, notify = null, log = console, scanner, fetchImpl = fetch }) {
@@ -23,6 +24,7 @@ export class Collector extends EventEmitter {
     this.connection = null;
     this.system = null;
     this.lastError = null;
+    this.errors = new Map();
     this.lastSuccess = null;
     // IP fixes (baux DHCP statiques), relues à chaque passage pour marquer les appareils concernés
     this.staticLeases = [];
@@ -89,20 +91,36 @@ export class Collector extends EventEmitter {
       await fn();
       if (name !== 'rollup') {
         this.lastSuccess = now();
-        if (this.lastError) {
-          this.log.info('Freebox de nouveau joignable');
-          this.lastError = null;
+        if (this.errors.delete(name)) {
+          this.refreshError();
+          if (!this.lastError) this.log.info('Collecte de nouveau complète');
           this.emit('status', this.status());
         }
       }
     } catch (e) {
-      // On ne répète pas la même erreur toutes les 10 secondes dans les logs
-      if (this.lastError?.message !== e.message) this.log.warn(`Collecte ${name} : ${e.message}`);
-      this.lastError = { message: e.message, code: e.code ?? null, ts: now() };
+      // Une erreur par tâche : la réussite d'une autre tâche ne la masque pas, et on ne la répète pas toutes les 10 s
+      const before = this.errors.get(name);
+      if (before?.raw !== e.message) this.log.warn(`Collecte ${name} : ${e.message}`);
+      this.errors.set(name, {
+        raw: e.message,
+        message: `${TASKS[name] ?? name} : ${e.message}`,
+        code: e.code ?? null,
+        unreachable: e.code === 'unreachable',
+        task: name,
+        ts: now(),
+        since: before?.raw === e.message ? before.since : now(),
+      });
+      this.refreshError();
       this.emit('status', this.status());
     } finally {
       this.running.delete(name);
     }
+  }
+
+  /** Erreur montrée à l'interface : celle de la box injoignable d'abord, sinon la plus récente. */
+  refreshError() {
+    const all = [...this.errors.values()];
+    this.lastError = all.find((x) => x.unreachable) ?? all.sort((a, b) => b.ts - a.ts)[0] ?? null;
   }
 
   status() {

@@ -17,6 +17,22 @@ export class FreeboxError extends Error {
   }
 }
 
+/**
+ * Cause lisible d'un échec réseau de fetch() : l'interface l'affiche telle quelle. Le cas DNS est le plus trompeur
+ * (la box répond, mais le conteneur ne trouve plus son nom) : on le dit clairement.
+ */
+export function networkReason(e, timeoutMs) {
+  const code = e?.cause?.code || e?.code || e?.name || 'erreur inconnue';
+  if (code === 'ENOTFOUND' || code === 'EAI_AGAIN') {
+    const host = e.cause?.hostname ? ` « ${e.cause.hostname} »` : '';
+    return `le nom${host} ne se résout plus depuis le conteneur (DNS, ${code}). Vérifie les serveurs DNS du serveur Docker ou mets l'adresse IP de la box dans FREEBOX_URL`;
+  }
+  if (code === 'TimeoutError' || code === 'AbortError') return `pas de réponse en ${Math.round(timeoutMs / 1000)} s`;
+  if (code === 'ECONNREFUSED') return 'connexion refusée (ECONNREFUSED)';
+  if (code === 'EHOSTUNREACH' || code === 'ENETUNREACH') return `réseau inaccessible (${code})`;
+  return code;
+}
+
 /** Version d'API à utiliser : celle de la box, entre 8 et la plus récente testée. */
 export function apiMajorOf(apiVersion) {
   const major = Number.parseInt(String(apiVersion ?? '').split('.')[0], 10);
@@ -62,7 +78,7 @@ export class FreeboxClient {
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (e) {
-      throw new FreeboxError(`Freebox injoignable (${e.cause?.code || e.name}) : ${url.replace(/\?.*/, '')}`, { code: 'unreachable' });
+      throw new FreeboxError(`Freebox injoignable : ${networkReason(e, timeoutMs)} (${url.replace(/\?.*/, '')})`, { code: 'unreachable' });
     }
     // Fichiers renvoyés tels quels (configuration VPN...) : seulement si ce n'est pas une erreur JSON
     if (plain && res.ok && !/json/i.test(res.headers.get('content-type') ?? '')) return res.text();
@@ -81,7 +97,7 @@ export class FreeboxClient {
   /** GET /api_version : identité de la box, sans authentification. */
   async discover() {
     const res = await this.fetch(`${this.baseUrl}/api_version`, { signal: AbortSignal.timeout(5000) })
-      .catch((e) => { throw new FreeboxError(`Freebox injoignable à ${this.baseUrl} (${e.cause?.code || e.name})`, { code: 'unreachable' }); });
+      .catch((e) => { throw new FreeboxError(`Freebox injoignable à ${this.baseUrl} : ${networkReason(e, 5000)}`, { code: 'unreachable' }); });
     if (!res.ok) throw new FreeboxError(`${this.baseUrl} ne répond pas comme une Freebox (HTTP ${res.status})`);
     const info = await res.json();
     return {

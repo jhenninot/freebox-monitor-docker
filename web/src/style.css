@@ -201,3 +201,8 @@ textarea { font: inherit; font-family: ui-monospace, monospace; font-size: 0.85r
 .news-tags { gap: 0.3rem; margin-top: 0.25rem; }
 .news-categories { margin: 0.6rem 0 0.2rem; gap: 0.35rem; }
 .news-categories button { padding: 0.15rem 0.55rem; font-size: 0.8rem; }
+
+button.status-pill { border: 0; cursor: pointer; font: inherit; font-size: 0.8rem; }
+.status-detail { margin: 0.5rem 1rem 0; padding: 0.6rem 0.9rem; border-radius: 10px; background: var(--bad); color: #fff; cursor: pointer; overflow-wrap: anywhere; }
+.status-detail p { margin: 0.2rem 0; }
+.status-detail .muted { color: rgba(255, 255, 255, 0.85); }
